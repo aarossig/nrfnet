@@ -8,6 +8,9 @@
 
 add_executable(nerfnet
   nerfnet_main.cc
+  radio_interface.cc
+  primary_radio_interface.cc
+  secondary_radio_interface.cc
 )
 
 target_include_directories(nerfnet PRIVATE
@@ -19,7 +22,9 @@ target_include_directories(nerfnet PUBLIC
 )
 
 target_link_libraries(nerfnet PUBLIC
+  net-proto
   rf24
+  util
 )
 
 # net proto ####################################################################

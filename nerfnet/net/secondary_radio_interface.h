@@ -14,32 +14,24 @@
  * limitations under the License.
  */
 
-syntax = "proto2";
+#ifndef NERFNET_NET_SECONDARY_RADIO_INTERFACE_H_
+#define NERFNET_NET_SECONDARY_RADIO_INTERFACE_H_
 
-package nerfnet;
+#include "nerfnet/net/radio_interface.h"
 
-// The request from the primary radio to the secondary.
-message Request {
-  // A simple ping request.
-  message Ping {
-    // A value to round-trip from secondary to primary.
-    optional uint32 value = 1;
-  }
+namespace nerfnet {
 
-  oneof request {
-    Ping ping = 1;
-  }
-}
+// The secondary mode radio interface.
+class SecondaryRadioInterface : public RadioInterface {
+ public:
+  // Setup the secondary radio link.
+  SecondaryRadioInterface(uint16_t ce_pin, int tunnel_fd,
+                          uint32_t primary_addr, uint32_t secondary_addr);
 
-// The response from the secondary radio to the primary.
-message Response {
-  // The response to a ping request.
-  message Ping {
-    // The value round-tripped back from secondary to primary.
-    optional uint32 value = 1;
-  }
+  // Runs the interface listening for commands and responding.
+  void Run();
+};
 
-  oneof response {
-    Ping ping = 1;
-  }
-}
+}  // namespace nerfnet
+
+#endif  // NERFNET_NET_SECONDARY_RADIO_INTERFACE_H_

@@ -25,6 +25,8 @@
 #include <unistd.h>
 #include <RF24/RF24.h>
 
+#include "nerfnet/net/primary_radio_interface.h"
+#include "nerfnet/net/secondary_radio_interface.h"
 #include "nerfnet/util/log.h"
 
 // A description of the program.
@@ -72,27 +74,43 @@ int main(int argc, char** argv) {
   TCLAP::ValueArg<uint16_t> ce_pin_arg("", "ce_pin",
       "Set to the index of the NRF24L01 chip-enable pin.", false, 15, "index",
       cmd);
+  TCLAP::SwitchArg primary_arg("", "primary",
+      "Run this side of the network in primary mode.", false);
+  TCLAP::SwitchArg secondary_arg("", "secondary",
+      "Run this side of the network in secondary mode.", false);
+  cmd.xorAdd(primary_arg, secondary_arg);
+  TCLAP::ValueArg<uint32_t> primary_addr_arg("", "primary_addr",
+      "The address to use for the primary side of nerfnet.",
+      false, 0x90019001, "address", cmd);
+  TCLAP::ValueArg<uint32_t> secondary_addr_arg("", "secondary_addr",
+      "The address to use for the secondary side of nerfnet.",
+      false, 0x90009000, "address", cmd);
   cmd.parse(argc, argv);
 
-  // Setup the RF24 instance.
-  RF24 radio(ce_pin_arg.getValue(), 0);
-  radio.begin();
-  radio.setPALevel(RF24_PA_MAX);
-  radio.setDataRate(RF24_1MBPS);
-  radio.setAutoAck(1);
-  radio.setRetries(2, 15);
-  radio.setCRCLength(RF24_CRC_8);
-  CHECK(radio.isChipConnected(), "NRF24L01 is unavailable");
-
   // Setup tunnel.
-  int tun_fd = OpenTunnel(interface_name_arg.getValue());
+  int tunnel_fd = OpenTunnel(interface_name_arg.getValue());
   LOGI("tunnel '%s' opened", interface_name_arg.getValue().c_str());
   SetInterfaceFlags(interface_name_arg.getValue(), IFF_UP);
   LOGI("tunnel '%s' up", interface_name_arg.getValue().c_str());
 
+  if (primary_arg.getValue()) {
+    nerfnet::PrimaryRadioInterface radio_interface(
+        ce_pin_arg.getValue(), tunnel_fd,
+        primary_addr_arg.getValue(), secondary_addr_arg.getValue());
+    // TODO: Remove this test code.
+    radio_interface.Ping(1337);
+  } else if (secondary_arg.getValue()) {
+    nerfnet::SecondaryRadioInterface radio_interface(
+        ce_pin_arg.getValue(), tunnel_fd,
+        primary_addr_arg.getValue(), secondary_addr_arg.getValue());
+    radio_interface.Run();
+  } else {
+    CHECK(false, "Primary or secondary mode must be enabled");
+  }
+
   while (1) {
     uint8_t buf[1024];
-    int bytes_read = read(tun_fd, buf, sizeof(buf));
+    int bytes_read = read(tunnel_fd, buf, sizeof(buf));
     LOGI("Read %d bytes", bytes_read);
   }
 

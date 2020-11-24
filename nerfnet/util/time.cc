@@ -14,32 +14,14 @@
  * limitations under the License.
  */
 
-syntax = "proto2";
+#include "nerfnet/util/time.h"
 
-package nerfnet;
+#include <unistd.h>
 
-// The request from the primary radio to the secondary.
-message Request {
-  // A simple ping request.
-  message Ping {
-    // A value to round-trip from secondary to primary.
-    optional uint32 value = 1;
-  }
+namespace nerfnet {
 
-  oneof request {
-    Ping ping = 1;
-  }
+void SleepUs(uint64_t delay) {
+  usleep(delay);
 }
 
-// The response from the secondary radio to the primary.
-message Response {
-  // The response to a ping request.
-  message Ping {
-    // The value round-tripped back from secondary to primary.
-    optional uint32 value = 1;
-  }
-
-  oneof response {
-    Ping ping = 1;
-  }
-}
+}  // namespace nerfnet

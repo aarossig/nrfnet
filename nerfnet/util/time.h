@@ -14,32 +14,16 @@
  * limitations under the License.
  */
 
-syntax = "proto2";
+#ifndef NERFNET_UTIL_TIME_H_
+#define NERFNET_UTIL_TIME_H_
 
-package nerfnet;
+#include <cstdint>
 
-// The request from the primary radio to the secondary.
-message Request {
-  // A simple ping request.
-  message Ping {
-    // A value to round-trip from secondary to primary.
-    optional uint32 value = 1;
-  }
+namespace nerfnet {
 
-  oneof request {
-    Ping ping = 1;
-  }
-}
+// Sleeps for the privided number of microseconds.
+void SleepUs(uint64_t delay);
 
-// The response from the secondary radio to the primary.
-message Response {
-  // The response to a ping request.
-  message Ping {
-    // The value round-tripped back from secondary to primary.
-    optional uint32 value = 1;
-  }
+}  // namespace nerfnet
 
-  oneof response {
-    Ping ping = 1;
-  }
-}
+#endif  // NERFNET_UTIL_TIME_H_

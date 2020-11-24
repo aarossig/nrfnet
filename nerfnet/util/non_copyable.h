@@ -14,32 +14,20 @@
  * limitations under the License.
  */
 
-syntax = "proto2";
+#ifndef NERFNET_UTIL_NON_COPYABLE_H_
+#define NERFNET_UTIL_NON_COPYABLE_H_
 
-package nerfnet;
+namespace nerfnet {
 
-// The request from the primary radio to the secondary.
-message Request {
-  // A simple ping request.
-  message Ping {
-    // A value to round-trip from secondary to primary.
-    optional uint32 value = 1;
-  }
+// Marks a class as non-copyable by deleting the copy constructor/assignment
+// operators.
+class NonCopyable {
+ public:
+  NonCopyable() = default;
+  NonCopyable(const NonCopyable&) = delete;
+  NonCopyable& operator=(const NonCopyable&) = delete;
+};
 
-  oneof request {
-    Ping ping = 1;
-  }
-}
+}  // namespace nerfnet
 
-// The response from the secondary radio to the primary.
-message Response {
-  // The response to a ping request.
-  message Ping {
-    // The value round-tripped back from secondary to primary.
-    optional uint32 value = 1;
-  }
-
-  oneof response {
-    Ping ping = 1;
-  }
-}
+#endif // NERFNET_UTIL_NON_COPYABLE_H_
