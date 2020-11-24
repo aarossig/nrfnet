@@ -14,7 +14,13 @@ target_include_directories(nerfnet PRIVATE
   ${tclap_INCLUDE_DIRS}
 )
 
-target_include_directories(nerfnet PUBLIC ${PROJECT_SOURCE_DIR})
+target_include_directories(nerfnet PUBLIC
+  ${PROJECT_SOURCE_DIR}
+)
+
+target_link_libraries(nerfnet PUBLIC
+  rf24
+)
 
 # net proto ####################################################################
 

@@ -23,6 +23,7 @@
 #include <sys/socket.h>
 #include <tclap/CmdLine.h>
 #include <unistd.h>
+#include <RF24/RF24.h>
 
 #include "nerfnet/util/log.h"
 
@@ -66,9 +67,22 @@ int OpenTunnel(const std::string_view& device_name) {
 int main(int argc, char** argv) {
   // Parse command-line arguments.
   TCLAP::CmdLine cmd(kDescription, ' ', kVersion);
-  TCLAP::ValueArg<std::string> interface_name_arg("i", "interface_name_arg",
+  TCLAP::ValueArg<std::string> interface_name_arg("i", "interface_name",
       "Set to the name of the tunnel device.", false, "nerf0", "name", cmd);
+  TCLAP::ValueArg<uint16_t> ce_pin_arg("", "ce_pin",
+      "Set to the index of the NRF24L01 chip-enable pin.", false, 15, "index",
+      cmd);
   cmd.parse(argc, argv);
+
+  // Setup the RF24 instance.
+  RF24 radio(ce_pin_arg.getValue(), 0);
+  radio.begin();
+  radio.setPALevel(RF24_PA_MAX);
+  radio.setDataRate(RF24_1MBPS);
+  radio.setAutoAck(1);
+  radio.setRetries(2, 15);
+  radio.setCRCLength(RF24_CRC_8);
+  CHECK(radio.isChipConnected(), "NRF24L01 is unavailable");
 
   // Setup tunnel.
   int tun_fd = OpenTunnel(interface_name_arg.getValue());
