@@ -36,7 +36,7 @@ RadioInterface::RadioInterface(uint16_t ce_pin, int tunnel_fd,
   radio_.setDataRate(RF24_1MBPS);
   radio_.setAutoAck(1);
   radio_.setRetries(2, 15);
-  radio_.setCRCLength(RF24_CRC_8);
+  radio_.setCRCLength(RF24_CRC_16);
   CHECK(radio_.isChipConnected(), "NRF24L01 is unavailable");
 }
 
@@ -54,7 +54,7 @@ RadioInterface::RequestResult RadioInterface::Send(
       "failed to encode message");
   if (serialized_request.size() > (kMaxPacketSize - 1)) {
     LOGE("serialized message is too large (%zu vs %zu)",
-        serialized_request.size(), kMaxPacketSize);
+        serialized_request.size(), (kMaxPacketSize - 1));
     return RequestResult::Malformed;
   }
 

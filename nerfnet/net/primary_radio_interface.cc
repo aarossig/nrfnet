@@ -93,7 +93,7 @@ void PrimaryRadioInterface::Run() {
     size_t transfer_size = 0;
     if (!read_buffer_.empty()) {
       auto& frame = read_buffer_.front();
-      transfer_size = std::min(frame.size(), static_cast<size_t>(16));
+      transfer_size = std::min(frame.size(), static_cast<size_t>(26));
       tunnel->set_payload({frame.begin(), frame.begin() + transfer_size});
       tunnel->set_remaining_bytes(frame.size() - transfer_size);
     }
