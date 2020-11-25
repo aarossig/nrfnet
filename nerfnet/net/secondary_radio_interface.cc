@@ -102,6 +102,11 @@ void SecondaryRadioInterface::HandleNetworkTunnelTxRx(
   } else {
     read_buffer_.erase(read_buffer_.begin(),
         read_buffer_.begin() + transfer_size);
+
+    int bytes_written = write(tunnel_fd_,
+        request.network_tunnel_txrx().data(),
+        request.network_tunnel_txrx().size());
+    LOGI("Wrote %d bytes from the tunnel", bytes_written);
   }
 }
 
