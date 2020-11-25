@@ -72,7 +72,7 @@ int main(int argc, char** argv) {
   TCLAP::ValueArg<std::string> interface_name_arg("i", "interface_name",
       "Set to the name of the tunnel device.", false, "nerf0", "name", cmd);
   TCLAP::ValueArg<uint16_t> ce_pin_arg("", "ce_pin",
-      "Set to the index of the NRF24L01 chip-enable pin.", false, 15, "index",
+      "Set to the index of the NRF24L01 chip-enable pin.", false, 22, "index",
       cmd);
   TCLAP::SwitchArg primary_arg("", "primary",
       "Run this side of the network in primary mode.", false);

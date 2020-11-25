@@ -68,8 +68,7 @@ PrimaryRadioInterface::RequestResult PrimaryRadioInterface::Ping(
     LOGI("Sending byte %zu=%02x", i, serialized_message[i]);
   }
 
-  if (!radio_.write(serialized_message.data(), serialized_message.size(),
-        /*multicast=*/false)) {
+  if (!radio_.write(serialized_message.data(), serialized_message.size())) {
     LOGE("failed to write ping request");
     return RequestResult::TransmitError;
   }

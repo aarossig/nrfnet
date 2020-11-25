@@ -27,6 +27,7 @@ RadioInterface::RadioInterface(uint16_t ce_pin, int tunnel_fd,
       primary_addr_(primary_addr),
       secondary_addr_(secondary_addr) {
   radio_.begin();
+  radio_.setChannel(1);
   radio_.setPALevel(RF24_PA_MAX);
   radio_.setDataRate(RF24_1MBPS);
   radio_.setAutoAck(1);
