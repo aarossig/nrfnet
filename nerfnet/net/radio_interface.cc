@@ -16,6 +16,8 @@
 
 #include "nerfnet/net/radio_interface.h"
 
+#include <unistd.h>
+
 #include "nerfnet/util/log.h"
 #include "nerfnet/util/time.h"
 
@@ -26,7 +28,8 @@ RadioInterface::RadioInterface(uint16_t ce_pin, int tunnel_fd,
     : radio_(ce_pin, 0),
       tunnel_fd_(tunnel_fd),
       primary_addr_(primary_addr),
-      secondary_addr_(secondary_addr) {
+      secondary_addr_(secondary_addr),
+      tunnel_thread_(&RadioInterface::TunnelThread, this) {
   radio_.begin();
   radio_.setChannel(1);
   radio_.setPALevel(RF24_PA_MAX);
@@ -35,6 +38,11 @@ RadioInterface::RadioInterface(uint16_t ce_pin, int tunnel_fd,
   radio_.setRetries(2, 15);
   radio_.setCRCLength(RF24_CRC_8);
   CHECK(radio_.isChipConnected(), "NRF24L01 is unavailable");
+}
+
+RadioInterface::~RadioInterface() {
+  running_ = false;
+  tunnel_thread_.join();
 }
 
 RadioInterface::RequestResult RadioInterface::Send(
@@ -95,6 +103,22 @@ RadioInterface::RequestResult RadioInterface::Receive(
   }
 
   return RequestResult::Success;
+}
+
+void RadioInterface::TunnelThread() {
+  running_ = true;
+  while (running_) {
+    uint8_t buffer[1024];
+    int bytes_read = read(tunnel_fd_, buffer, sizeof(buffer));
+    if (bytes_read < 0) {
+      LOGE("Failed to read: %s (%d)", strerror(errno), errno);
+      continue;
+    }
+
+    LOGI("Read %d bytes", bytes_read);
+    std::lock_guard<std::mutex> lock(read_buffer_mutex_);
+    read_buffer_.insert(read_buffer_.end(), &buffer[0], &buffer[bytes_read]);
+  }
 }
 
 }  // namespace nerfnet

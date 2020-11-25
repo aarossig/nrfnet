@@ -17,13 +17,13 @@
 #include <fcntl.h>
 #include <linux/if.h>
 #include <linux/if_tun.h>
+#include <RF24/RF24.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <tclap/CmdLine.h>
 #include <unistd.h>
-#include <RF24/RF24.h>
 
 #include "nerfnet/net/primary_radio_interface.h"
 #include "nerfnet/net/secondary_radio_interface.h"
@@ -105,7 +105,7 @@ int main(int argc, char** argv) {
         LOGI("ping completed successfully");
       }
     } else {
-      // TODO: run.
+      radio_interface.Run();
     }
   } else if (secondary_arg.getValue()) {
     nerfnet::SecondaryRadioInterface radio_interface(
@@ -114,12 +114,6 @@ int main(int argc, char** argv) {
     radio_interface.Run();
   } else {
     CHECK(false, "Primary or secondary mode must be enabled");
-  }
-
-  while (1) {
-    uint8_t buf[1024];
-    int bytes_read = read(tunnel_fd, buf, sizeof(buf));
-    LOGI("Read %d bytes", bytes_read);
   }
 
   return 0;

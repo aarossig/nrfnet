@@ -37,6 +37,7 @@ class SecondaryRadioInterface : public RadioInterface {
 
   // Request handlers.
   void HandlePing(const Request::Ping& ping);
+  void HandleNetworkTunnelTxRx(const Request::NetworkTunnelTxRx& tunnel);
 };
 
 }  // namespace nerfnet

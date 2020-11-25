@@ -17,7 +17,8 @@
 #ifndef NERFNET_NET_RADIO_INTERFACE_H_
 #define NERFNET_NET_RADIO_INTERFACE_H_
 
-#include "RF24/RF24.h"
+#include <RF24/RF24.h>
+#include <thread>
 
 #include "nerfnet/net/net.pb.h"
 #include "nerfnet/util/non_copyable.h"
@@ -30,6 +31,7 @@ class RadioInterface : public NonCopyable {
   // Setup the radio interface.
   RadioInterface(uint16_t ce_pin, int tunnel_fd,
                  uint32_t primary_addr, uint32_t secondary_addr);
+  ~RadioInterface();
 
   // The possible results of a request operation.
   enum class RequestResult {
@@ -66,12 +68,23 @@ class RadioInterface : public NonCopyable {
   const uint32_t primary_addr_;
   const uint32_t secondary_addr_;
 
+  // The thread to read from the tunnel interface on.
+  std::thread tunnel_thread_;
+  std::atomic<bool> running_;
+
+  // The buffer of data read and lock.
+  std::mutex read_buffer_mutex_;
+  std::vector<uint8_t> read_buffer_;
+
   // Sends a message over the radio.
   RequestResult Send(const google::protobuf::Message& request);
 
   // Reads a message from the radio.
   RequestResult Receive(google::protobuf::Message& response,
       uint64_t timeout_us = 0);
+
+  // Reads from the tunnel and buffers data read.
+  void TunnelThread();
 };
 
 }  // namespace nerfnet

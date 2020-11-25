@@ -26,8 +26,15 @@ message Request {
     optional uint32 value = 1;
   }
 
+  // A TxRx request for the network tunnel.
+  message NetworkTunnelTxRx {
+    // The bytes to send to the secondary radio.
+    optional bytes payload = 1;
+  }
+
   oneof request {
     Ping ping = 1;
+    NetworkTunnelTxRx network_tunnel_txrx = 2;
   }
 }
 
@@ -39,7 +46,14 @@ message Response {
     optional uint32 value = 1;
   }
 
+  // A TxRx request for the network tunnel.
+  message NetworkTunnelTxRx {
+    // The bytes to send back to the primary radio.
+    optional bytes payload = 1;
+  }
+
   oneof response {
     Ping ping = 1;
+    NetworkTunnelTxRx network_tunnel_txrx = 2;
   }
 }

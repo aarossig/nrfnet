@@ -18,6 +18,7 @@
 
 #include "nerfnet/util/log.h"
 #include "nerfnet/util/macros.h"
+#include "nerfnet/util/time.h"
 
 namespace nerfnet {
 
@@ -48,7 +49,7 @@ PrimaryRadioInterface::PrimaryRadioInterface(
 PrimaryRadioInterface::RequestResult PrimaryRadioInterface::Ping(
     const std::optional<uint32_t>& value) {
   Request request;
-  auto ping = request.mutable_ping();
+  auto* ping = request.mutable_ping();
   if (value.has_value()) {
     ping->set_value(*value);
   }
@@ -77,6 +78,35 @@ PrimaryRadioInterface::RequestResult PrimaryRadioInterface::Ping(
   }
 
   return result;
+}
+
+void PrimaryRadioInterface::Run() {
+  while (1) {
+    std::lock_guard<std::mutex> lock(read_buffer_mutex_);
+
+    Request request;
+    auto* tunnel = request.mutable_network_tunnel_txrx();
+    size_t transfer_size = std::min(read_buffer_.size(),
+        static_cast<size_t>(16));
+    tunnel->set_payload({read_buffer_.begin(), read_buffer_.begin()
+        + transfer_size});
+
+    auto result = Send(request);
+    if (result != RequestResult::Success) {
+      LOGE("Failed to send network tunnel txrx request");
+      continue;
+    }
+
+    Response response;
+    result = Receive(response, /*timeout_us=*/100000);
+    if (result != RequestResult::Success) {
+      LOGE("Failed to receive network tunnel txrx request");
+      continue;
+    }
+
+    read_buffer_.erase(read_buffer_.begin(),
+        read_buffer_.begin() + transfer_size);
+  }
 }
 
 }  // namespace nerfnet

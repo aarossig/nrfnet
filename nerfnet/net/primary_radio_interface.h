@@ -32,6 +32,9 @@ class PrimaryRadioInterface : public RadioInterface {
 
   // Sends a ping with the supplied value to round trip.
   RequestResult Ping(const std::optional<uint32_t>& value);
+
+  // Runs the interface.
+  void Run();
 };
 
 }  // namespace nerfnet

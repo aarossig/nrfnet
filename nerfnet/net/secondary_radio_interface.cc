@@ -65,6 +65,9 @@ void SecondaryRadioInterface::HandleRequest(const Request& request) {
     case Request::kPing:
       HandlePing(request.ping());
       break;
+    case Request::kNetworkTunnelTxrx:
+      HandleNetworkTunnelTxRx(request.network_tunnel_txrx());
+      break;
     default:
       LOGE("Received unknown request");
       break;
@@ -81,6 +84,24 @@ void SecondaryRadioInterface::HandlePing(const Request::Ping& ping) {
   auto status = Send(response);
   if (status != RequestResult::Success) {
     LOGE("failed to send ping response");
+  }
+}
+
+void SecondaryRadioInterface::HandleNetworkTunnelTxRx(
+    const Request::NetworkTunnelTxRx& tunnel) {
+  std::lock_guard<std::mutex> lock(read_buffer_mutex_);
+
+  Response response;
+  auto* tunnel_response = response.mutable_network_tunnel_txrx();
+  size_t transfer_size = std::min(read_buffer_.size(), static_cast<size_t>(16));
+  tunnel_response->set_payload({read_buffer_.begin(), read_buffer_.begin()
+      + transfer_size});
+  auto status = Send(response);
+  if (status != RequestResult::Success) {
+    LOGE("Failed to send network tunnel txrx response");
+  } else {
+    read_buffer_.erase(read_buffer_.begin(),
+        read_buffer_.begin() + transfer_size);
   }
 }
 
