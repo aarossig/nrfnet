@@ -33,7 +33,7 @@ RadioInterface::RadioInterface(uint16_t ce_pin, int tunnel_fd,
   radio_.begin();
   radio_.setChannel(1);
   radio_.setPALevel(RF24_PA_MAX);
-  radio_.setDataRate(RF24_1MBPS);
+  radio_.setDataRate(RF24_2MBPS);
   radio_.setAutoAck(1);
   radio_.setRetries(2, 15);
   radio_.setCRCLength(RF24_CRC_16);
