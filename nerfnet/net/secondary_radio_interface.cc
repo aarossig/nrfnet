@@ -16,6 +16,7 @@
 
 #include "nerfnet/net/secondary_radio_interface.h"
 
+#include <unistd.h>
 #include <vector>
 
 #include "nerfnet/util/log.h"
@@ -105,8 +106,7 @@ void SecondaryRadioInterface::HandleNetworkTunnelTxRx(
         read_buffer_.begin() + transfer_size);
 
     int bytes_written = write(tunnel_fd_,
-        request.network_tunnel_txrx().data(),
-        request.network_tunnel_txrx().size());
+        tunnel.payload().data(), tunnel.payload().size());
     LOGI("Wrote %d bytes from the tunnel", bytes_written);
   }
 }

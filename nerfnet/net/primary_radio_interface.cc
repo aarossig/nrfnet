@@ -16,6 +16,8 @@
 
 #include "nerfnet/net/primary_radio_interface.h"
 
+#include <unistd.h>
+
 #include "nerfnet/util/log.h"
 #include "nerfnet/util/macros.h"
 #include "nerfnet/util/time.h"
@@ -82,8 +84,6 @@ PrimaryRadioInterface::RequestResult PrimaryRadioInterface::Ping(
 
 void PrimaryRadioInterface::Run() {
   while (1) {
-    SleepUs(200000);
-
     std::lock_guard<std::mutex> lock(read_buffer_mutex_);
 
     Request request;
@@ -114,8 +114,8 @@ void PrimaryRadioInterface::Run() {
     // TODO: Check that the response is well formed.
 
     int bytes_written = write(tunnel_fd_,
-        response.netowrk_tunnel_txrx().data(),
-        response.network_tunnel_txrx().size());
+        response.network_tunnel_txrx().payload().data(),
+        response.network_tunnel_txrx().payload().size());
     LOGI("Wrote %d bytes from the tunnel", bytes_written);
   }
 }
