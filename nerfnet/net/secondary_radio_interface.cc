@@ -96,6 +96,7 @@ void SecondaryRadioInterface::HandleNetworkTunnelTxRx(
   size_t transfer_size = std::min(read_buffer_.size(), static_cast<size_t>(16));
   tunnel_response->set_payload({read_buffer_.begin(), read_buffer_.begin()
       + transfer_size});
+  SleepUs(5000);
   auto status = Send(response);
   if (status != RequestResult::Success) {
     LOGE("Failed to send network tunnel txrx response");

@@ -110,6 +110,13 @@ void PrimaryRadioInterface::Run() {
 
     read_buffer_.erase(read_buffer_.begin(),
         read_buffer_.begin() + transfer_size);
+
+    // TODO: Check that the response is well formed.
+
+    int bytes_written = write(tunnel_fd_,
+        response.netowrk_tunnel_txrx().data(),
+        response.network_tunnel_txrx().size());
+    LOGI("Wrote %d bytes from the tunnel", bytes_written);
   }
 }
 
