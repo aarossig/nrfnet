@@ -58,11 +58,6 @@ RadioInterface::RequestResult RadioInterface::Send(
     return RequestResult::Malformed;
   }
 
-  LOGI("Sending packet with length: %zu", serialized_request.size());
-  for (size_t i = 0; i < serialized_request.size(); i++) {
-    LOGI("Sending byte %zu=%02x", i, serialized_request[i]);
-  }
-
   serialized_request.insert(serialized_request.begin(),
       static_cast<char>(serialized_request.size()));
   if (!radio_.write(serialized_request.data(), serialized_request.size())) {
