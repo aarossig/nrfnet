@@ -31,6 +31,21 @@ class RadioInterface : public NonCopyable {
   RadioInterface(uint16_t ce_pin, int tunnel_fd,
                  uint32_t primary_addr, uint32_t secondary_addr);
 
+  // The possible results of a request operation.
+  enum class RequestResult {
+    // The request was successful.
+    Success,
+
+    // The request timed out.
+    Timeout,
+
+    // The request could not be sent because it was malformed.
+    Malformed,
+
+    // There was an error transmitting the request.
+    TransmitError,
+  };
+
  protected:
   // The number of microseconds to poll over.
   static constexpr uint32_t kPollIntervalUs = 1000;
@@ -50,23 +65,6 @@ class RadioInterface : public NonCopyable {
   // The addresses to use for this radio pair.
   const uint32_t primary_addr_;
   const uint32_t secondary_addr_;
-
-  // The possible results of a request operation.
-  enum class RequestResult {
-    // The request was successful.
-    Success,
-
-    // The request timed out.
-    Timeout,
-
-    // The request could not be sent because it was malformed.
-    Malformed,
-
-    // There was an error transmitting the request.
-    TransmitError,
-  };
-
-
 
   // Sends a message over the radio.
   RequestResult Send(const google::protobuf::Message& request);

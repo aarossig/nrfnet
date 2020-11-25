@@ -66,6 +66,16 @@ PrimaryRadioInterface::RequestResult PrimaryRadioInterface::Ping(
     return result;
   }
 
+  if (!response.has_ping()) {
+    LOGE("Response missing ping response");
+    return RequestResult::Malformed;
+  } else if (value.has_value()
+             && (!response.ping().has_value()
+		 || response.ping().value() != value)) {
+    LOGE("Response value mismatch");
+    return RequestResult::Malformed;
+  }
+
   return result;
 }
 

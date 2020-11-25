@@ -85,6 +85,8 @@ int main(int argc, char** argv) {
   TCLAP::ValueArg<uint32_t> secondary_addr_arg("", "secondary_addr",
       "The address to use for the secondary side of nerfnet.",
       false, 0x90009000, "address", cmd);
+  TCLAP::SwitchArg ping_arg("", "ping",
+      "Only used by the primary radio. Issue a ping request then quit.", cmd);
   cmd.parse(argc, argv);
 
   // Setup tunnel.
@@ -97,8 +99,14 @@ int main(int argc, char** argv) {
     nerfnet::PrimaryRadioInterface radio_interface(
         ce_pin_arg.getValue(), tunnel_fd,
         primary_addr_arg.getValue(), secondary_addr_arg.getValue());
-    // TODO: Remove this test code.
-    radio_interface.Ping(1337);
+    if (ping_arg.getValue()) {
+      auto result = radio_interface.Ping(1337);
+      if (result == nerfnet::RadioInterface::RequestResult::Success) {
+        LOGI("ping completed successfully");
+      }
+    } else {
+      // TODO: run.
+    }
   } else if (secondary_arg.getValue()) {
     nerfnet::SecondaryRadioInterface radio_interface(
         ce_pin_arg.getValue(), tunnel_fd,
