@@ -24,11 +24,13 @@
 namespace nerfnet {
 
 RadioInterface::RadioInterface(uint16_t ce_pin, int tunnel_fd,
-                               uint32_t primary_addr, uint32_t secondary_addr)
+                               uint32_t primary_addr, uint32_t secondary_addr,
+                               uint64_t rf_delay_us)
     : radio_(ce_pin, 0),
       tunnel_fd_(tunnel_fd),
       primary_addr_(primary_addr),
       secondary_addr_(secondary_addr),
+      rf_delay_us_(rf_delay_us),
       tunnel_thread_(&RadioInterface::TunnelThread, this) {
   radio_.begin();
   radio_.setChannel(1);

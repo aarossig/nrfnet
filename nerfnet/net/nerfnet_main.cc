@@ -85,6 +85,9 @@ int main(int argc, char** argv) {
   TCLAP::ValueArg<uint32_t> secondary_addr_arg("", "secondary_addr",
       "The address to use for the secondary side of nerfnet.",
       false, 0x90009000, "address", cmd);
+  TCLAP::ValueArg<uint32_t> rf_delay_us_arg("", "rf_delay_us",
+      "The delay between RF operations in microseconds.",
+      false, 5000, "microseconds", cmd);
   TCLAP::SwitchArg ping_arg("", "ping",
       "Only used by the primary radio. Issue a ping request then quit.", cmd);
   cmd.parse(argc, argv);
@@ -98,7 +101,8 @@ int main(int argc, char** argv) {
   if (primary_arg.getValue()) {
     nerfnet::PrimaryRadioInterface radio_interface(
         ce_pin_arg.getValue(), tunnel_fd,
-        primary_addr_arg.getValue(), secondary_addr_arg.getValue());
+        primary_addr_arg.getValue(), secondary_addr_arg.getValue(),
+        rf_delay_us_arg.getValue());
     if (ping_arg.getValue()) {
       auto result = radio_interface.Ping(1337);
       if (result == nerfnet::RadioInterface::RequestResult::Success) {
@@ -110,7 +114,8 @@ int main(int argc, char** argv) {
   } else if (secondary_arg.getValue()) {
     nerfnet::SecondaryRadioInterface radio_interface(
         ce_pin_arg.getValue(), tunnel_fd,
-        primary_addr_arg.getValue(), secondary_addr_arg.getValue());
+        primary_addr_arg.getValue(), secondary_addr_arg.getValue(),
+        rf_delay_us_arg.getValue());
     radio_interface.Run();
   } else {
     CHECK(false, "Primary or secondary mode must be enabled");

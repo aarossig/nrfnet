@@ -28,7 +28,8 @@ class PrimaryRadioInterface : public RadioInterface {
  public:
   // Setup the primary radio link.
   PrimaryRadioInterface(uint16_t ce_pin, int tunnel_fd,
-                        uint32_t primary_addr, uint32_t secondary_addr);
+                        uint32_t primary_addr, uint32_t secondary_addr,
+                        uint64_t rf_delay_us);
 
   // Sends a ping with the supplied value to round trip.
   RequestResult Ping(const std::optional<uint32_t>& value);

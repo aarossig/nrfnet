@@ -26,8 +26,9 @@ namespace nerfnet {
 
 PrimaryRadioInterface::PrimaryRadioInterface(
     uint16_t ce_pin, int tunnel_fd,
-    uint32_t primary_addr, uint32_t secondary_addr)
-    : RadioInterface(ce_pin, tunnel_fd, primary_addr, secondary_addr) {
+    uint32_t primary_addr, uint32_t secondary_addr, uint64_t rf_delay_us)
+    : RadioInterface(ce_pin, tunnel_fd, primary_addr, secondary_addr,
+                     rf_delay_us) {
   uint8_t writing_addr[5] = {
     static_cast<uint8_t>(primary_addr),
     static_cast<uint8_t>(primary_addr >> 8),
@@ -84,7 +85,7 @@ PrimaryRadioInterface::RequestResult PrimaryRadioInterface::Ping(
 
 void PrimaryRadioInterface::Run() {
   while (1) {
-    SleepUs(5000);
+    SleepUs(rf_delay_us_);
 
     std::lock_guard<std::mutex> lock(read_buffer_mutex_);
 
@@ -104,7 +105,7 @@ void PrimaryRadioInterface::Run() {
       continue;
     }
 
-    SleepUs(5000);
+    SleepUs(rf_delay_us_);
 
     Response response;
     result = Receive(response, /*timeout_us=*/100000);
