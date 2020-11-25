@@ -102,8 +102,8 @@ RadioInterface::RequestResult RadioInterface::Receive(
 
 void RadioInterface::TunnelThread() {
   running_ = true;
+  uint8_t buffer[3200];
   while (running_) {
-    uint8_t buffer[1024];
     int bytes_read = read(tunnel_fd_, buffer, sizeof(buffer));
     if (bytes_read < 0) {
       LOGE("Failed to read: %s (%d)", strerror(errno), errno);
@@ -112,7 +112,7 @@ void RadioInterface::TunnelThread() {
 
     LOGI("Read %d bytes", bytes_read);
     std::lock_guard<std::mutex> lock(read_buffer_mutex_);
-    read_buffer_.insert(read_buffer_.end(), &buffer[0], &buffer[bytes_read]);
+    read_buffer_.emplace_back(&buffer[0], &buffer[bytes_read]);
   }
 }
 

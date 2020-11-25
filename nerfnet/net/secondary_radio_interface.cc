@@ -94,24 +94,41 @@ void SecondaryRadioInterface::HandleNetworkTunnelTxRx(
 
   Response response;
   auto* tunnel_response = response.mutable_network_tunnel_txrx();
-  size_t transfer_size = std::min(read_buffer_.size(), static_cast<size_t>(16));
-  tunnel_response->set_payload({read_buffer_.begin(), read_buffer_.begin()
-      + transfer_size});
+  size_t transfer_size = 0;
+  if (!read_buffer_.empty()) {
+    auto& frame = read_buffer_.front();
+    transfer_size = std::min(frame.size(), static_cast<size_t>(16));
+    tunnel_response->set_payload({frame.begin(),
+        frame.begin() + transfer_size});
+    tunnel_response->set_remaining_bytes(frame.size() - transfer_size);
+  }
+
   SleepUs(5000);
+
   auto status = Send(response);
   if (status != RequestResult::Success) {
     LOGE("Failed to send network tunnel txrx response");
   } else {
-    read_buffer_.erase(read_buffer_.begin(),
-        read_buffer_.begin() + transfer_size);
+    if (!read_buffer_.empty()) {
+      auto& frame = read_buffer_.front();
+      frame.erase(frame.begin(), frame.begin() + transfer_size);
+      if (frame.empty()) {
+        read_buffer_.pop_front();
+      }
+    }
 
-    if (!tunnel.payload().empty()) {
-      int bytes_written = write(tunnel_fd_,
-          tunnel.payload().data(), tunnel.payload().size());
-      if (bytes_written < 0) {
-        LOGE("Failed to write to tunnel %s (%d)", strerror(errno), errno);
-      } else {
-        LOGI("Wrote %d bytes from the tunnel", bytes_written);
+    if (tunnel.has_payload()) {
+      frame_buffer_ += tunnel.payload();
+      if (tunnel.remaining_bytes() == 0) {
+        int bytes_written = write(tunnel_fd_,
+            frame_buffer_.data(), frame_buffer_.size());
+        if (bytes_written < 0) {
+          LOGE("Failed to write to tunnel %s (%d)", strerror(errno), errno);
+        } else {
+          LOGI("Wrote %d bytes from the tunnel", bytes_written);
+        }
+
+        frame_buffer_.clear();
       }
     }
   }

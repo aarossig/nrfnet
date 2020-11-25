@@ -30,6 +30,10 @@ message Request {
   message NetworkTunnelTxRx {
     // The bytes to send to the secondary radio.
     optional bytes payload = 1;
+
+    // The number of remaining bytes for this packet. Once zero, write out
+    // to the tunnel interface.
+    optional uint32 remaining_bytes = 2;
   }
 
   oneof request {
@@ -50,6 +54,10 @@ message Response {
   message NetworkTunnelTxRx {
     // The bytes to send back to the primary radio.
     optional bytes payload = 1;
+
+    // The number of remaining bytes for this packet. Once zero, write out
+    // to the tunnel interface.
+    optional uint32 remaining_bytes = 2;
   }
 
   oneof response {

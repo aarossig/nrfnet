@@ -17,6 +17,7 @@
 #ifndef NERFNET_NET_RADIO_INTERFACE_H_
 #define NERFNET_NET_RADIO_INTERFACE_H_
 
+#include <deque>
 #include <RF24/RF24.h>
 #include <thread>
 
@@ -74,7 +75,11 @@ class RadioInterface : public NonCopyable {
 
   // The buffer of data read and lock.
   std::mutex read_buffer_mutex_;
-  std::vector<uint8_t> read_buffer_;
+  std::deque<std::vector<uint8_t>> read_buffer_;
+
+  // The frame buffer for the currently incoming frame. Written out to
+  // the tunnel interface when completely received.
+  std::string frame_buffer_;
 
   // Sends a message over the radio.
   RequestResult Send(const google::protobuf::Message& request);
