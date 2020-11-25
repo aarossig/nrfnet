@@ -84,6 +84,8 @@ PrimaryRadioInterface::RequestResult PrimaryRadioInterface::Ping(
 
 void PrimaryRadioInterface::Run() {
   while (1) {
+    SleepUs(5000);
+
     std::lock_guard<std::mutex> lock(read_buffer_mutex_);
 
     Request request;
@@ -113,10 +115,16 @@ void PrimaryRadioInterface::Run() {
 
     // TODO: Check that the response is well formed.
 
-    int bytes_written = write(tunnel_fd_,
-        response.network_tunnel_txrx().payload().data(),
-        response.network_tunnel_txrx().payload().size());
-    LOGI("Wrote %d bytes from the tunnel", bytes_written);
+    if (!response.network_tunnel_txrx().payload().empty()) {
+      int bytes_written = write(tunnel_fd_,
+          response.network_tunnel_txrx().payload().data(),
+          response.network_tunnel_txrx().payload().size());
+      if (bytes_written < 0) {
+        LOGE("Failed to write to tunnel %s (%d)", strerror(errno), errno);
+      } else {
+        LOGI("Wrote %d bytes from the tunnel", bytes_written);
+      }
+    }
   }
 }
 

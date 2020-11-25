@@ -105,9 +105,15 @@ void SecondaryRadioInterface::HandleNetworkTunnelTxRx(
     read_buffer_.erase(read_buffer_.begin(),
         read_buffer_.begin() + transfer_size);
 
-    int bytes_written = write(tunnel_fd_,
-        tunnel.payload().data(), tunnel.payload().size());
-    LOGI("Wrote %d bytes from the tunnel", bytes_written);
+    if (!tunnel.payload().empty()) {
+      int bytes_written = write(tunnel_fd_,
+          tunnel.payload().data(), tunnel.payload().size());
+      if (bytes_written < 0) {
+        LOGE("Failed to write to tunnel %s (%d)", strerror(errno), errno);
+      } else {
+        LOGI("Wrote %d bytes from the tunnel", bytes_written);
+      }
+    }
   }
 }
 
