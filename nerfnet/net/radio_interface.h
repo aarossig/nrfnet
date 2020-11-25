@@ -92,6 +92,9 @@ class RadioInterface : public NonCopyable {
   RequestResult Receive(google::protobuf::Message& response,
       uint64_t timeout_us = 0);
 
+  // Returns the size of the read buffer.
+  size_t GetReadBufferSize();
+
   // Reads from the tunnel and buffers data read.
   void TunnelThread();
 };

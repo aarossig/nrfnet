@@ -102,6 +102,11 @@ RadioInterface::RequestResult RadioInterface::Receive(
   return RequestResult::Success;
 }
 
+size_t RadioInterface::GetReadBufferSize() {
+  std::lock_guard<std::mutex> lock(read_buffer_mutex_);
+  return read_buffer_.size();
+}
+
 void RadioInterface::TunnelThread() {
   running_ = true;
   uint8_t buffer[3200];
@@ -112,9 +117,14 @@ void RadioInterface::TunnelThread() {
       continue;
     }
 
-    LOGI("Read %d bytes", bytes_read);
-    std::lock_guard<std::mutex> lock(read_buffer_mutex_);
-    read_buffer_.emplace_back(&buffer[0], &buffer[bytes_read]);
+    {
+      std::lock_guard<std::mutex> lock(read_buffer_mutex_);
+      read_buffer_.emplace_back(&buffer[0], &buffer[bytes_read]);
+    }
+
+    while (GetReadBufferSize() > 3) {
+      SleepUs(10000);
+    }
   }
 }
 
