@@ -17,6 +17,7 @@
 #include "nerfnet/net/radio_interface.h"
 
 #include "nerfnet/util/log.h"
+#include "nerfnet/util/time.h"
 
 namespace nerfnet {
 
@@ -36,15 +37,17 @@ RadioInterface::RadioInterface(uint16_t ce_pin, int tunnel_fd,
   CHECK(radio_.isChipConnected(), "NRF24L01 is unavailable");
 }
 
-RadioInterface::RequestResult RadioInterface::SendRequest(
+RadioInterface::RequestResult RadioInterface::Send(
     const google::protobuf::Message& request) {
+  radio_.stopListening();
+
   std::string serialized_request;
   CHECK(request.SerializeToString(&serialized_request),
       "failed to encode message");
   if (serialized_request.size() > (kMaxPacketSize - 1)) {
     LOGE("serialized message is too large (%zu vs %zu)",
         serialized_request.size(), kMaxPacketSize);
-    return RequestResult::MalformedRequest;
+    return RequestResult::Malformed;
   }
 
   LOGI("Sending packet with length: %zu", serialized_request.size());
@@ -55,8 +58,40 @@ RadioInterface::RequestResult RadioInterface::SendRequest(
   serialized_request.insert(serialized_request.begin(),
       static_cast<char>(serialized_request.size()));
   if (!radio_.write(serialized_request.data(), serialized_request.size())) {
-    LOGE("failed to write ping request");
+    LOGE("failed to write request");
     return RequestResult::TransmitError;
+  }
+
+  radio_.startListening();
+  return RequestResult::Success;
+}
+
+RadioInterface::RequestResult RadioInterface::Receive(
+    google::protobuf::Message& response, uint64_t timeout_us) {
+  uint64_t start_us = TimeNowUs();
+
+  while (!radio_.available()) {
+    if (timeout_us != 0 && (start_us + timeout_us) > TimeNowUs()) {
+      LOGE("Timeout receiving response");
+      return RequestResult::Timeout;
+    }
+
+    SleepUs(1000);
+  }
+
+  std::string packet(kMaxPacketSize, '\0');
+  radio_.read(packet.data(), packet.size());
+
+  size_t size = packet[0];
+  if (size > (packet.size() - 1)) {
+    LOGE("Received message too large");
+    return RequestResult::Malformed;
+  }
+
+  packet = packet.substr(1, size);
+  if (!response.ParseFromString(packet)) {
+    LOGE("Received message failed to deserialize");
+    return RequestResult::Malformed;
   }
 
   return RequestResult::Success;

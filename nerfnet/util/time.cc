@@ -16,12 +16,18 @@
 
 #include "nerfnet/util/time.h"
 
+#include <chrono>
 #include <unistd.h>
 
 namespace nerfnet {
 
 void SleepUs(uint64_t delay) {
   usleep(delay);
+}
+
+uint64_t TimeNowUs() {
+  return std::chrono::duration_cast<std::chrono::microseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count();
 }
 
 }  // namespace nerfnet

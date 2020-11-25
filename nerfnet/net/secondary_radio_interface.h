@@ -30,6 +30,13 @@ class SecondaryRadioInterface : public RadioInterface {
 
   // Runs the interface listening for commands and responding.
   void Run();
+
+ protected:
+  // Handles a request from the primary radio.
+  void HandleRequest(const Request& request);
+
+  // Request handlers.
+  void HandlePing(const Request::Ping& ping);
 };
 
 }  // namespace nerfnet

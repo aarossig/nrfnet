@@ -52,16 +52,35 @@ void SecondaryRadioInterface::Run() {
   uint8_t packet[kMaxPacketSize];
 
   while (1) {
-    if (radio_.available()) {
-      radio_.read(&packet, sizeof(packet));
-
-      LOGI("Received packet with length: %u", kMaxPacketSize);
-      for (size_t i = 0; i < kMaxPacketSize; i++) {
-        LOGI("Received byte %zu=%02x", i, packet[i]);
-      }
-    } else {
-      SleepUs(kPollIntervalUs);
+    Request request;
+    auto result = Receive(request);
+    if (result == RequestResult::Success) {
+      HandleRequest(request);
     }
+  }
+}
+
+void SecondaryRadioInterface::HandleRequest(const Request& request) {
+  switch (request.request_case()) {
+    case Request::kPing:
+      HandlePing(request.ping());
+      break;
+    default:
+      LOGE("Received unknown request");
+      break;
+  }
+}
+
+void SecondaryRadioInterface::HandlePing(const Request::Ping& ping) {
+  Response response;
+  auto* ping_response = response.mutable_ping();
+  if (ping.has_value()) {
+    ping_response->set_value(ping.value());
+  }
+
+  auto status = Send(response);
+  if (status != RequestResult::Success) {
+    LOGE("failed to send ping response");
   }
 }
 

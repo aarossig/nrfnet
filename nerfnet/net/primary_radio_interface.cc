@@ -53,8 +53,18 @@ PrimaryRadioInterface::RequestResult PrimaryRadioInterface::Ping(
     ping->set_value(*value);
   }
 
-  auto result = SendRequest(request);
-  // TODO: Read the response.
+  auto result = Send(request);
+  if (result != RequestResult::Success) {
+    LOGE("Failed to send ping request");
+    return result;
+  }
+
+  Response response;
+  result = Receive(response, /*timeout_us=*/100000);
+  if (result != RequestResult::Success) {
+    LOGE("Failed to receive ping response");
+    return result;
+  }
 
   return result;
 }

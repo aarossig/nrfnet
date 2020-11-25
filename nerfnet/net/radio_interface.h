@@ -60,7 +60,7 @@ class RadioInterface : public NonCopyable {
     Timeout,
 
     // The request could not be sent because it was malformed.
-    MalformedRequest,
+    Malformed,
 
     // There was an error transmitting the request.
     TransmitError,
@@ -69,7 +69,11 @@ class RadioInterface : public NonCopyable {
 
 
   // Sends a message over the radio.
-  RequestResult SendRequest(const google::protobuf::Message& request);
+  RequestResult Send(const google::protobuf::Message& request);
+
+  // Reads a message from the radio.
+  RequestResult Receive(google::protobuf::Message& response,
+      uint64_t timeout_us = 0);
 };
 
 }  // namespace nerfnet
