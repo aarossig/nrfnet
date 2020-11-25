@@ -44,7 +44,7 @@ SecondaryRadioInterface::SecondaryRadioInterface(
   };
 
   radio_.openWritingPipe(writing_addr);
-  radio_.openReadingPipe(1, reading_addr);
+  radio_.openReadingPipe(kPipeId, reading_addr);
   radio_.startListening();
 }
 
@@ -53,11 +53,10 @@ void SecondaryRadioInterface::Run() {
 
   while (1) {
     if (radio_.available()) {
-      uint8_t packet_length = radio_.getDynamicPayloadSize();
-      radio_.read(&packet_length, sizeof(packet_length));
+      radio_.read(&packet, sizeof(packet));
 
-      LOGI("Received packet with length: %u", packet_length);
-      for (size_t i = 0; i < packet_length; i++) {
+      LOGI("Received packet with length: %u", kMaxPacketSize);
+      for (size_t i = 0; i < kMaxPacketSize; i++) {
         LOGI("Received byte %zu=%02x", i, packet[i]);
       }
     } else {

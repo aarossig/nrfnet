@@ -30,21 +30,6 @@ class PrimaryRadioInterface : public RadioInterface {
   PrimaryRadioInterface(uint16_t ce_pin, int tunnel_fd,
                         uint32_t primary_addr, uint32_t secondary_addr);
 
-  // The possible results of a request operation.
-  enum class RequestResult {
-    // The request was successful.
-    Success,
-
-    // The request timed out.
-    Timeout,
-
-    // The request could not be sent because it was malformed.
-    MalformedRequest,
-
-    // There was an error transmitting the request.
-    TransmitError,
-  };
-
   // Sends a ping with the supplied value to round trip.
   RequestResult Ping(const std::optional<uint32_t>& value);
 };

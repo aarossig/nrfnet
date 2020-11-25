@@ -16,7 +16,6 @@
 
 #include "nerfnet/net/primary_radio_interface.h"
 
-#include "nerfnet/net/net.pb.h"
 #include "nerfnet/util/log.h"
 #include "nerfnet/util/macros.h"
 
@@ -43,7 +42,7 @@ PrimaryRadioInterface::PrimaryRadioInterface(
   };
 
   radio_.openWritingPipe(writing_addr);
-  radio_.openReadingPipe(1, reading_addr);
+  radio_.openReadingPipe(kPipeId, reading_addr);
 }
 
 PrimaryRadioInterface::RequestResult PrimaryRadioInterface::Ping(
@@ -54,26 +53,10 @@ PrimaryRadioInterface::RequestResult PrimaryRadioInterface::Ping(
     ping->set_value(*value);
   }
 
-  std::string serialized_message;
-  CHECK(request.SerializeToString(&serialized_message),
-      "failed to encode ping");
-  if (serialized_message.size() > kMaxPacketSize) {
-    LOGE("serialized ping is too large (%zu vs %zu)",
-        serialized_message.size(), kMaxPacketSize);
-    return RequestResult::MalformedRequest;
-  }
+  auto result = SendRequest(request);
+  // TODO: Read the response.
 
-  LOGI("Sending packet with length: %zu", serialized_message.size());
-  for (size_t i = 0; i < serialized_message.size(); i++) {
-    LOGI("Sending byte %zu=%02x", i, serialized_message[i]);
-  }
-
-  if (!radio_.write(serialized_message.data(), serialized_message.size())) {
-    LOGE("failed to write ping request");
-    return RequestResult::TransmitError;
-  }
-
-  return RequestResult::Success;
+  return result;
 }
 
 }  // namespace nerfnet

@@ -33,9 +33,33 @@ RadioInterface::RadioInterface(uint16_t ce_pin, int tunnel_fd,
   radio_.setAutoAck(1);
   radio_.setRetries(2, 15);
   radio_.setCRCLength(RF24_CRC_8);
-  radio_.enableAckPayload();
-  radio_.enableDynamicPayloads();
   CHECK(radio_.isChipConnected(), "NRF24L01 is unavailable");
+}
+
+RadioInterface::RequestResult RadioInterface::SendRequest(
+    const google::protobuf::Message& request) {
+  std::string serialized_request;
+  CHECK(request.SerializeToString(&serialized_request),
+      "failed to encode message");
+  if (serialized_request.size() > (kMaxPacketSize - 1)) {
+    LOGE("serialized message is too large (%zu vs %zu)",
+        serialized_request.size(), kMaxPacketSize);
+    return RequestResult::MalformedRequest;
+  }
+
+  LOGI("Sending packet with length: %zu", serialized_request.size());
+  for (size_t i = 0; i < serialized_request.size(); i++) {
+    LOGI("Sending byte %zu=%02x", i, serialized_request[i]);
+  }
+
+  serialized_request.insert(serialized_request.begin(),
+      static_cast<char>(serialized_request.size()));
+  if (!radio_.write(serialized_request.data(), serialized_request.size())) {
+    LOGE("failed to write ping request");
+    return RequestResult::TransmitError;
+  }
+
+  return RequestResult::Success;
 }
 
 }  // namespace nerfnet

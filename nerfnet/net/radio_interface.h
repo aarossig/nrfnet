@@ -19,6 +19,7 @@
 
 #include "RF24/RF24.h"
 
+#include "nerfnet/net/net.pb.h"
 #include "nerfnet/util/non_copyable.h"
 
 namespace nerfnet {
@@ -37,6 +38,9 @@ class RadioInterface : public NonCopyable {
   // The maximum size of a packet.
   static constexpr size_t kMaxPacketSize = 32;
 
+  // The default pipe to use for sending data.
+  static constexpr uint8_t kPipeId = 1;
+
   // The underlying radio.
   RF24 radio_;
 
@@ -46,6 +50,26 @@ class RadioInterface : public NonCopyable {
   // The addresses to use for this radio pair.
   const uint32_t primary_addr_;
   const uint32_t secondary_addr_;
+
+  // The possible results of a request operation.
+  enum class RequestResult {
+    // The request was successful.
+    Success,
+
+    // The request timed out.
+    Timeout,
+
+    // The request could not be sent because it was malformed.
+    MalformedRequest,
+
+    // There was an error transmitting the request.
+    TransmitError,
+  };
+
+
+
+  // Sends a message over the radio.
+  RequestResult SendRequest(const google::protobuf::Message& request);
 };
 
 }  // namespace nerfnet
