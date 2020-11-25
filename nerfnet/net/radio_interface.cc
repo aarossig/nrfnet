@@ -71,7 +71,7 @@ RadioInterface::RequestResult RadioInterface::Receive(
   uint64_t start_us = TimeNowUs();
 
   while (!radio_.available()) {
-    if (timeout_us != 0 && (start_us + timeout_us) > TimeNowUs()) {
+    if (timeout_us != 0 && (start_us + timeout_us) < TimeNowUs()) {
       LOGE("Timeout receiving response");
       return RequestResult::Timeout;
     }
