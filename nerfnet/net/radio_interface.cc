@@ -125,7 +125,7 @@ void RadioInterface::TunnelThread() {
       read_buffer_.emplace_back(&buffer[0], &buffer[bytes_read]);
     }
 
-    while (GetReadBufferSize() > kMaxBufferedFrames) {
+    while (GetReadBufferSize() > kMaxBufferedFrames && running_) {
       SleepUs(10000);
     }
   }
