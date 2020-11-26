@@ -108,6 +108,9 @@ size_t RadioInterface::GetReadBufferSize() {
 }
 
 void RadioInterface::TunnelThread() {
+  // The maximum number of network frames to buffer here.
+  constexpr size_t kMaxBufferedFrames = 3;
+
   running_ = true;
   uint8_t buffer[3200];
   while (running_) {
@@ -122,7 +125,7 @@ void RadioInterface::TunnelThread() {
       read_buffer_.emplace_back(&buffer[0], &buffer[bytes_read]);
     }
 
-    while (GetReadBufferSize() > 3) {
+    while (GetReadBufferSize() > kMaxBufferedFrames) {
       SleepUs(10000);
     }
   }
