@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <arpa/inet.h>
 #include <fcntl.h>
 #include <linux/if.h>
 #include <linux/if_tun.h>
@@ -50,6 +51,32 @@ void SetInterfaceFlags(const std::string_view& device_name, int flags) {
   close(fd);
 }
 
+void SetIPAddress(const std::string_view& device_name,
+                  const std::string_view& ip, const std::string& ip_mask) {
+  int fd = socket(AF_INET, SOCK_DGRAM, 0);
+  CHECK(fd >= 0, "Failed to open socket: %s (%d)", strerror(errno), errno);
+
+  struct ifreq ifr = {};
+  strncpy(ifr.ifr_name, std::string(device_name).c_str(), IFNAMSIZ);
+
+  ifr.ifr_addr.sa_family = AF_INET;
+  CHECK(inet_pton(AF_INET, std::string(ip).c_str(),
+        &reinterpret_cast<struct sockaddr_in*>(&ifr.ifr_addr)->sin_addr) == 1,
+      "Failed to assign IP address: %s (%d)", strerror(errno), errno);
+  int status = ioctl(fd, SIOCSIFADDR, &ifr);
+  CHECK(status >= 0, "Failed to set tunnel interface ip: %s (%d)",
+      strerror(errno), errno);
+
+  ifr.ifr_netmask.sa_family = AF_INET;
+  CHECK(inet_pton(AF_INET, std::string(ip_mask).c_str(),
+        &reinterpret_cast<struct sockaddr_in*>(&ifr.ifr_netmask)->sin_addr) == 1,
+      "Failed to assign IP mask: %s (%d)", strerror(errno), errno);
+  status = ioctl(fd, SIOCSIFNETMASK, &ifr);
+  CHECK(status >= 0, "Failed to set tunnel interface mask: %s (%d)",
+      strerror(errno), errno);
+  close(fd);
+}
+
 // Opens the tunnel interface to listen on. Always returns a valid file
 // descriptor or quits and logs the error.
 int OpenTunnel(const std::string_view& device_name) {
@@ -78,6 +105,12 @@ int main(int argc, char** argv) {
       "Run this side of the network in primary mode.", false);
   TCLAP::SwitchArg secondary_arg("", "secondary",
       "Run this side of the network in secondary mode.", false);
+  TCLAP::ValueArg<std::string> tunnel_ip_arg("", "tunnel_ip",
+      "The IP address to assign to the tunnel interface.", false, "", "ip",
+      cmd);
+  TCLAP::ValueArg<std::string> tunnel_ip_mask("", "tunnel_mask",
+      "The network mask to use for the tunnel interface.", false,
+      "255.255.255.0", "mask", cmd);
   cmd.xorAdd(primary_arg, secondary_arg);
   TCLAP::ValueArg<uint32_t> primary_addr_arg("", "primary_addr",
       "The address to use for the primary side of nerfnet.",
@@ -92,11 +125,25 @@ int main(int argc, char** argv) {
       "Only used by the primary radio. Issue a ping request then quit.", cmd);
   cmd.parse(argc, argv);
 
+  std::string tunnel_ip = tunnel_ip_arg.getValue();
+  if (!tunnel_ip_arg.isSet()) {
+    if (primary_arg.getValue()) {
+      tunnel_ip = "192.168.10.1";
+    } else if (secondary_arg.getValue()) {
+      tunnel_ip = "192.168.10.2";
+    }
+  }
+
   // Setup tunnel.
   int tunnel_fd = OpenTunnel(interface_name_arg.getValue());
   LOGI("tunnel '%s' opened", interface_name_arg.getValue().c_str());
   SetInterfaceFlags(interface_name_arg.getValue(), IFF_UP);
   LOGI("tunnel '%s' up", interface_name_arg.getValue().c_str());
+  SetIPAddress(interface_name_arg.getValue(), tunnel_ip,
+      tunnel_ip_mask.getValue());
+  LOGI("tunnel '%s' configured with '%s' mask '%s'",
+       interface_name_arg.getValue().c_str(), tunnel_ip.c_str(),
+       tunnel_ip_mask.getValue().c_str());
 
   if (primary_arg.getValue()) {
     nerfnet::PrimaryRadioInterface radio_interface(
