@@ -63,7 +63,7 @@ RadioInterface::RequestResult RadioInterface::Send(
   serialized_request.insert(serialized_request.begin(),
       static_cast<char>(serialized_request.size()));
   if (!radio_.write(serialized_request.data(), serialized_request.size())) {
-    LOGE("failed to write request");
+    LOGE("Failed to write request");
     return RequestResult::TransmitError;
   }
 
