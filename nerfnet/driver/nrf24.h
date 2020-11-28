@@ -41,13 +41,22 @@ class NRF24 : public NonCopyable {
   // transactions.
   int spi_fd_;
 
+  // Writes the supplied value to a given register.
+  void WriteRegister(uint8_t address, uint8_t value);
+  void WriteRegister(uint8_t address, const std::vector<uint8_t>& value);
+
+  // Reads the value from a given register.
+  void ReadRegister(uint8_t address, uint8_t* value);
+  void ReadRegister(uint8_t address, std::vector<uint8_t>& value);
+
   // Setup the SPI device for the supplied path. All errors are fatal and
   // logged.
   void SetupSPIDevice(const std::string& spidev_path);
 
   // Performs a SPI transaction with the supplied buffers.
-  void PerformSPITransaction(
-      const std::vector<uint8_t>& tx_buffer, std::vector<uint8_t>& rx_buffer);
+  void PerformSPITransaction(const std::vector<uint8_t>& tx_buffer);
+  void PerformSPITransaction(const std::vector<uint8_t>& tx_buffer,
+                             std::vector<uint8_t>& rx_buffer);
 
   // Initializes the chip-enable line.
   void InitChipEnable();

@@ -42,33 +42,44 @@ NRF24::NRF24(const std::string& spidev_path, uint16_t ce_pin)
   InitChipEnable();
   SetChipEnable(false);
 
-  {
-  std::vector<uint8_t> command;
-  command.push_back(0x20);
-  command.push_back(0x00);
-  std::vector<uint8_t> response;
 
-  PerformSPITransaction(command, response);
-  for (size_t i = 0; i < response.size(); i++) {
-    LOGI("byte %zu=0x%02x", i, response[i]);
-  }
-  }
-
-  {
-  std::vector<uint8_t> command;
-  command.push_back(0x00);
-  command.push_back(0x00);
-  std::vector<uint8_t> response;
-
-  PerformSPITransaction(command, response);
-  for (size_t i = 0; i < response.size(); i++) {
-    LOGI("byte %zu=0x%02x", i, response[i]);
-  }
-  }
+  uint8_t value = 0x23;
+  WriteRegister(0x00, value);
+  value = 0x00;
+  ReadRegister(0x00, &value);
+  LOGI("value: 0x%02x", value);
 }
 
 NRF24::~NRF24() {
   close(spi_fd_);
+}
+
+void NRF24::WriteRegister(uint8_t address, uint8_t value) {
+  WriteRegister(address, std::vector<uint8_t>({value}));
+}
+
+void NRF24::WriteRegister(uint8_t address, const std::vector<uint8_t>& value) {
+  std::vector<uint8_t> command;
+  command.push_back(0x20 | address);
+  command.insert(command.end(), value.begin(), value.end());
+  std::vector<uint8_t> response;
+  PerformSPITransaction(command, response);
+}
+
+void NRF24::ReadRegister(uint8_t address, uint8_t* value) {
+  std::vector<uint8_t> response_value;
+  response_value.resize(1, 0x00);
+  ReadRegister(address, response_value);
+  *value = response_value[0];
+}
+
+void NRF24::ReadRegister(uint8_t address, std::vector<uint8_t>& value) {
+  std::vector<uint8_t> command;
+  command.resize(1 + value.size(), 0x00);
+  command[0] = address;
+  std::vector<uint8_t> response;
+  PerformSPITransaction(command, response);
+  value = {response.begin() + 1, response.end()};
 }
 
 void NRF24::SetupSPIDevice(const std::string& spidev_path) {
@@ -104,8 +115,13 @@ const uint32_t kSpiSpeedHz = 10000000;  // 10MHz.
       strerror(errno), errno);
 }
 
+void NRF24::PerformSPITransaction(const std::vector<uint8_t>& tx_buffer) {
+  std::vector<uint8_t> response;
+  PerformSPITransaction(tx_buffer, response);
+}
+
 void NRF24::PerformSPITransaction(const std::vector<uint8_t>& tx_buffer,
-    std::vector<uint8_t>& rx_buffer) {
+                                  std::vector<uint8_t>& rx_buffer) {
   rx_buffer.clear();
   rx_buffer.resize(tx_buffer.size());
 
