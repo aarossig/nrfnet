@@ -30,28 +30,49 @@ namespace nerfnet {
 namespace {
 
 // SPI bus configuration for NRF24L01.
-const uint8_t kSpiMode = 0;
-const uint8_t kSpiBitsPerWord = 8;
-const uint32_t kSpiSpeedHz = 10000000;  // 10MHz.
+constexpr uint8_t kSpiMode = 0;
+constexpr uint8_t kSpiBitsPerWord = 8;
+constexpr uint32_t kSpiSpeedHz = 10000000;  // 10MHz.
+
+// Register definitions.
+constexpr uint8_t kRegisterChannel = 0x05;
 
 }  // anonymous namespace
 
 NRF24::NRF24(const std::string& spidev_path, uint16_t ce_pin)
-    : ce_pin_(ce_pin) {
+    : ce_pin_(ce_pin),
+      channel_(0) {
   SetupSPIDevice(spidev_path);
   InitChipEnable();
   SetChipEnable(false);
-
-
-  uint8_t value = 0x23;
-  WriteRegister(0x00, value);
-  value = 0x00;
-  ReadRegister(0x00, &value);
-  LOGI("value: 0x%02x", value);
+  CHECK(WriteConfig(), "Failed to write config on startup");
 }
 
 NRF24::~NRF24() {
   close(spi_fd_);
+}
+
+bool NRF24::SetChannel(uint8_t channel) {
+  if (channel > 127) {
+    return false;
+  }
+
+  channel_ = channel;
+  return true;
+}
+
+bool NRF24::WriteConfig() {
+  // Write the RF channel.
+  uint8_t read_channel;
+  WriteRegister(kRegisterChannel, channel_);
+  ReadRegister(kRegisterChannel, &read_channel);
+  if (read_channel != channel_) {
+    LOGE("Channel readback mismatch: got 0x%02x, expected 0x%02x",
+        read_channel, channel_);
+    return false;
+  }
+
+  return true;
 }
 
 void NRF24::WriteRegister(uint8_t address, uint8_t value) {

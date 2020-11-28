@@ -33,9 +33,22 @@ class NRF24 : public NonCopyable {
   // Cleanup resources associated with this device.
   ~NRF24();
 
+  // Sets the channel to transmit/receive on. Returns false if the channnel
+  // is invalid.
+  bool SetChannel(uint8_t channel);
+
+  // Writes the configuration to the radio. This is called upon creation of an
+  // instance of this driver. It should be called to commit any other changes
+  // such as setting the channel or data rate. False is returned on error and
+  // errors are logged.
+  bool WriteConfig();
+
  private:
   // The GPIO for chip-enable.
   const uint16_t ce_pin_;
+
+  // The channel to transmit/receive on.
+  uint8_t channel_;
 
   // The file descriptor for the spidev device used to perform SPI
   // transactions.
