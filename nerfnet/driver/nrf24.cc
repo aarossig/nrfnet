@@ -27,10 +27,44 @@
 
 namespace nerfnet {
 
-NRF24::NRF24(const std::string& spidev_path, uint16_t ce_pin, uint16_t cs_pin)
-    : ce_pin_(ce_pin), cs_pin_(cs_pin) {
+namespace {
+
+// SPI bus configuration for NRF24L01.
+const uint8_t kSpiMode = 0;
+const uint8_t kSpiBitsPerWord = 8;
+const uint32_t kSpiSpeedHz = 10000000;  // 10MHz.
+
+}  // anonymous namespace
+
+NRF24::NRF24(const std::string& spidev_path, uint16_t ce_pin)
+    : ce_pin_(ce_pin) {
   SetupSPIDevice(spidev_path);
-  InitGPIO(ce_pin);
+  InitChipEnable();
+  SetChipEnable(false);
+
+  {
+  std::vector<uint8_t> command;
+  command.push_back(0x20);
+  command.push_back(0x00);
+  std::vector<uint8_t> response;
+
+  PerformSPITransaction(command, response);
+  for (size_t i = 0; i < response.size(); i++) {
+    LOGI("byte %zu=0x%02x", i, response[i]);
+  }
+  }
+
+  {
+  std::vector<uint8_t> command;
+  command.push_back(0x00);
+  command.push_back(0x00);
+  std::vector<uint8_t> response;
+
+  PerformSPITransaction(command, response);
+  for (size_t i = 0; i < response.size(); i++) {
+    LOGI("byte %zu=0x%02x", i, response[i]);
+  }
+  }
 }
 
 NRF24::~NRF24() {
@@ -38,15 +72,16 @@ NRF24::~NRF24() {
 }
 
 void NRF24::SetupSPIDevice(const std::string& spidev_path) {
-  // SPI bus configuration for NRF24L01.
-  constexpr uint8_t kSpiMode = 0;
-  constexpr uint8_t kSpiBitsPerWord = 8;
-  constexpr uint32_t kSpiSpeedHz = 10000000;  // 10MHz.
-
   // Setup the SPI device.
   spi_fd_ = open(spidev_path.c_str(), O_RDWR);
   CHECK(spi_fd_ >= 0, "Failed to open spidev '%s' with: %s (%d)",
       spidev_path.c_str(), strerror(errno), errno);
+
+// SPI bus configuration for NRF24L01.
+const uint8_t kSpiMode = 0;
+const uint8_t kSpiBitsPerWord = 8;
+const uint32_t kSpiSpeedHz = 10000000;  // 10MHz.
+
 
   // Setup the SPI bus mode.
   int result = ioctl(spi_fd_, SPI_IOC_WR_MODE, &kSpiMode);
@@ -69,23 +104,42 @@ void NRF24::SetupSPIDevice(const std::string& spidev_path) {
       strerror(errno), errno);
 }
 
-void NRF24::InitGPIO(uint16_t pin_index) {
+void NRF24::PerformSPITransaction(const std::vector<uint8_t>& tx_buffer,
+    std::vector<uint8_t>& rx_buffer) {
+  rx_buffer.clear();
+  rx_buffer.resize(tx_buffer.size());
+
+  struct spi_ioc_transfer transfer = {};
+  transfer.tx_buf = reinterpret_cast<uint64_t>(tx_buffer.data());
+  transfer.rx_buf = reinterpret_cast<uint64_t>(rx_buffer.data());
+  transfer.len = tx_buffer.size();
+  transfer.speed_hz = kSpiSpeedHz;
+  transfer.delay_usecs = 0;
+  transfer.bits_per_word = kSpiBitsPerWord;
+  transfer.cs_change = 0;
+  
+  int result = ioctl(spi_fd_, SPI_IOC_MESSAGE(1), &transfer);
+  CHECK(result >= 0, "Failed to perform SPI transaction: %s (%d)",
+      strerror(errno), errno);
+}
+
+void NRF24::InitChipEnable() {
   int fd = open("/sys/class/gpio/export", O_WRONLY);
   CHECK(fd >= 0, "Failed to open GPIO export: %s (%d)",
       strerror(errno), errno);
 
-  const auto pin_index_str = StringFormat("%d", pin_index);
-  int result = write(fd, pin_index_str.c_str(), pin_index_str.size());
-  CHECK(result == pin_index_str.size() || errno == EBUSY,
+  const auto ce_pin_str = StringFormat("%d", ce_pin_);
+  int result = write(fd, ce_pin_str.c_str(), ce_pin_str.size());
+  CHECK(result == ce_pin_str.size() || errno == EBUSY,
       "Failed to write GPIO export: %s (%d)",
       strerror(errno), errno);
   close(fd);
 
-	const auto pin_direction_path = StringFormat(
-      "/sys/class/gpio/gpio%d/direction", pin_index);
-	fd = open(pin_direction_path.c_str(), O_WRONLY);
+	const auto ce_pin_direction_path = StringFormat(
+      "/sys/class/gpio/gpio%d/direction", ce_pin_);
+	fd = open(ce_pin_direction_path.c_str(), O_WRONLY);
   CHECK(fd >= 0, "Failed to open GPIO direction '%s': %s (%d)",
-      pin_direction_path.c_str(), strerror(errno), errno);
+      ce_pin_direction_path.c_str(), strerror(errno), errno);
 
   const std::string kOutStr = "out";
   result = write(fd, kOutStr.c_str(), kOutStr.size());
@@ -95,15 +149,15 @@ void NRF24::InitGPIO(uint16_t pin_index) {
   close(fd);
 }
 
-void NRF24::SetGPIO(uint16_t pin_index, bool value) {
-  const auto pin_value_path = StringFormat(
-	    "/sys/class/gpio/gpio%d/value", pin_index);
-  int fd = open(pin_value_path.c_str(), O_WRONLY);
+void NRF24::SetChipEnable(bool value) {
+  const auto ce_value_path = StringFormat(
+	    "/sys/class/gpio/gpio%d/value", ce_pin_);
+  int fd = open(ce_value_path.c_str(), O_WRONLY);
   CHECK(fd >= 0, "Failed to open GPIO value '%s': %s (%d)",
-      pin_value_path.c_str(), strerror(errno), errno);
+      ce_value_path.c_str(), strerror(errno), errno);
   int result = write(fd, value ? "1" : "0", 1);
   CHECK(result == 1, "Failed to write GPIO value '%s': %s (%d)",
-      pin_value_path.c_str(), strerror(errno), errno);
+      ce_value_path.c_str(), strerror(errno), errno);
 	close(fd);
 }
 

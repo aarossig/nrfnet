@@ -18,6 +18,7 @@
 #define NERFNET_DRIVER_NRF24_H_
 
 #include <string>
+#include <vector>
 
 #include "nerfnet/util/non_copyable.h"
 
@@ -27,15 +28,14 @@ namespace nerfnet {
 class NRF24 : public NonCopyable {
  public:
   // Setup the NRF24 device.
-  NRF24(const std::string& spidev_path, uint16_t ce_pin, uint16_t cs_pin);
+  NRF24(const std::string& spidev_path, uint16_t ce_pin);
 
   // Cleanup resources associated with this device.
   ~NRF24();
 
  private:
-  // GPIOs for chip-select and chip-enable.
+  // The GPIO for chip-enable.
   const uint16_t ce_pin_;
-  const uint16_t cs_pin_;
 
   // The file descriptor for the spidev device used to perform SPI
   // transactions.
@@ -45,11 +45,15 @@ class NRF24 : public NonCopyable {
   // logged.
   void SetupSPIDevice(const std::string& spidev_path);
 
-  // Export and configure the supplied GPIO.
-  void InitGPIO(uint16_t pin_index);
+  // Performs a SPI transaction with the supplied buffers.
+  void PerformSPITransaction(
+      const std::vector<uint8_t>& tx_buffer, std::vector<uint8_t>& rx_buffer);
 
-  // Set the value of the supplied GPIO.
-  void SetGPIO(uint16_t pin_index, bool value);
+  // Initializes the chip-enable line.
+  void InitChipEnable();
+
+  // Set the value of the chip-enable line.
+  void SetChipEnable(bool value);
 };
 
 }  // namespace nerfnet
