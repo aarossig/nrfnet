@@ -34,11 +34,21 @@ message Request {
     // The number of remaining bytes for this packet. Once zero, write out
     // to the tunnel interface.
     optional uint32 remaining_bytes = 2;
+
+    // The ID of this payload.
+    optional uint32 id = 3;
+
+    // The ID that this payload is acking from the secondary radio.
+    optional uint32 ack_id = 4;
   }
+
+  // Tell the secondary radio to reset tunnel state.
+  message NetworkTunnelReset {}
 
   oneof request {
     Ping ping = 1;
     NetworkTunnelTxRx network_tunnel_txrx = 2;
+    NetworkTunnelReset network_tunnel_reset = 3;
   }
 }
 
@@ -58,10 +68,20 @@ message Response {
     // The number of remaining bytes for this packet. Once zero, write out
     // to the tunnel interface.
     optional uint32 remaining_bytes = 2;
+
+    // The ID of this payload.
+    optional uint32 id = 3;
+
+    // The ID that this payload is acking from the primary radio.
+    optional uint32 ack_id = 4;
   }
+
+  // The response to start a new network tunnel.
+  message NetworkTunnelReset {}
 
   oneof response {
     Ping ping = 1;
     NetworkTunnelTxRx network_tunnel_txrx = 2;
+    NetworkTunnelReset network_tunnel_reset = 3;
   }
 }

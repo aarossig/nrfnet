@@ -31,7 +31,8 @@ RadioInterface::RadioInterface(uint16_t ce_pin, int tunnel_fd,
       primary_addr_(primary_addr),
       secondary_addr_(secondary_addr),
       rf_delay_us_(rf_delay_us),
-      tunnel_thread_(&RadioInterface::TunnelThread, this) {
+      tunnel_thread_(&RadioInterface::TunnelThread, this),
+      next_id_(1) {
   radio_.begin();
   radio_.setChannel(1);
   radio_.setPALevel(RF24_PA_MAX);
@@ -110,6 +111,13 @@ RadioInterface::RequestResult RadioInterface::Receive(
 size_t RadioInterface::GetReadBufferSize() {
   std::lock_guard<std::mutex> lock(read_buffer_mutex_);
   return read_buffer_.size();
+}
+
+void RadioInterface::AdvanceID() {
+  next_id_++;
+  if (next_id_ > 0x7) {
+    next_id_ = 1;
+  }
 }
 
 void RadioInterface::TunnelThread() {

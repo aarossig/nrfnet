@@ -93,13 +93,38 @@ void SecondaryRadioInterface::HandlePing(const Request::Ping& ping) {
 void SecondaryRadioInterface::HandleNetworkTunnelTxRx(
     const Request::NetworkTunnelTxRx& tunnel) {
   std::lock_guard<std::mutex> lock(read_buffer_mutex_);
+  if (!tunnel.has_payload() || !tunnel.has_remaining_bytes()
+      || !tunnel.has_id()) {
+    LOGE("Missing tunnel fields");
+    return;
+  }
+
+  if (last_ack_id_.has_value() && (tunnel.id() != last_ack_id_.value() + 1)) {
+    LOGE("Received non-sequential packet");
+    return;
+  }
+
+  last_ack_id_ = tunnel.id();
+  AdvanceID();
+  if (!read_buffer_.empty()) {
+    auto& frame = read_buffer_.front();
+    size_t transfer_size = std::min(frame.size(), static_cast<size_t>(20));
+    frame.erase(frame.begin(), frame.begin() + transfer_size);
+    if (frame.empty()) {
+      read_buffer_.pop_front();
+    }
+  }
 
   Response response;
   auto* tunnel_response = response.mutable_network_tunnel_txrx();
-  size_t transfer_size = 0;
+  tunnel_response->set_id(next_id_);
+  if (last_ack_id_.has_value()) {
+    tunnel_response->set_ack_id(last_ack_id_.value());
+  }
+
   if (!read_buffer_.empty()) {
     auto& frame = read_buffer_.front();
-    transfer_size = std::min(frame.size(), static_cast<size_t>(24));
+    size_t transfer_size = std::min(frame.size(), static_cast<size_t>(20));
     tunnel_response->set_payload({frame.begin(),
         frame.begin() + transfer_size});
     tunnel_response->set_remaining_bytes(frame.size() - transfer_size);
@@ -108,28 +133,18 @@ void SecondaryRadioInterface::HandleNetworkTunnelTxRx(
   auto status = Send(response);
   if (status != RequestResult::Success) {
     LOGE("Failed to send network tunnel txrx response");
-  } else {
-    if (!read_buffer_.empty()) {
-      auto& frame = read_buffer_.front();
-      frame.erase(frame.begin(), frame.begin() + transfer_size);
-      if (frame.empty()) {
-        read_buffer_.pop_front();
+  } else if (tunnel.has_payload()) {
+    frame_buffer_ += tunnel.payload();
+    if (tunnel.remaining_bytes() == 0) {
+      int bytes_written = write(tunnel_fd_,
+          frame_buffer_.data(), frame_buffer_.size());
+      if (bytes_written < 0) {
+        LOGE("Failed to write to tunnel %s (%d)", strerror(errno), errno);
+      } else {
+        LOGI("Wrote %d bytes from the tunnel", bytes_written);
       }
-    }
 
-    if (tunnel.has_payload()) {
-      frame_buffer_ += tunnel.payload();
-      if (tunnel.remaining_bytes() == 0) {
-        int bytes_written = write(tunnel_fd_,
-            frame_buffer_.data(), frame_buffer_.size());
-        if (bytes_written < 0) {
-          LOGE("Failed to write to tunnel %s (%d)", strerror(errno), errno);
-        } else {
-          LOGI("Wrote %d bytes from the tunnel", bytes_written);
-        }
-
-        frame_buffer_.clear();
-      }
+      frame_buffer_.clear();
     }
   }
 }

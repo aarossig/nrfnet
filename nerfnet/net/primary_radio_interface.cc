@@ -90,10 +90,15 @@ void PrimaryRadioInterface::Run() {
 
     Request request;
     auto* tunnel = request.mutable_network_tunnel_txrx();
+    tunnel->set_id(next_id_);
+    if (last_ack_id_.has_value()) {
+      tunnel->set_ack_id(last_ack_id_.value());
+    }
+
     size_t transfer_size = 0;
     if (!read_buffer_.empty()) {
       auto& frame = read_buffer_.front();
-      transfer_size = std::min(frame.size(), static_cast<size_t>(24));
+      transfer_size = std::min(frame.size(), static_cast<size_t>(20));
       tunnel->set_payload({frame.begin(), frame.begin() + transfer_size});
       tunnel->set_remaining_bytes(frame.size() - transfer_size);
     }
@@ -111,6 +116,21 @@ void PrimaryRadioInterface::Run() {
       continue;
     }
 
+    if (!response.has_network_tunnel_txrx()) {
+      LOGE("Missing network tunnel txrx");
+      continue;
+    }
+    
+    const auto& tunnel_response = response.network_tunnel_txrx();
+    if (!tunnel_response.has_id() || !tunnel_response.has_ack_id()) {
+      LOGE("Missing tunnel fields");
+      continue;
+    } else if (tunnel_response.ack_id() != next_id_) {
+      LOGE("Secondary radio failed to ack, retransmitting");
+      continue;
+    }
+
+    AdvanceID();
     if (!read_buffer_.empty()) {
       auto& frame = read_buffer_.front();
       frame.erase(frame.begin(), frame.begin() + transfer_size);
@@ -119,12 +139,17 @@ void PrimaryRadioInterface::Run() {
       }
     }
 
-    // TODO: Check that the response is well formed.
-    if (!response.has_network_tunnel_txrx()) {
-      LOGE("Missing network tunnel txrx");
-    } else if (response.network_tunnel_txrx().has_payload()) {
-      frame_buffer_ += response.network_tunnel_txrx().payload();
-      if (response.network_tunnel_txrx().remaining_bytes() == 0) {
+    if (last_ack_id_.has_value()
+        && tunnel_response.id() != (last_ack_id_.value() + 1)) {
+      LOGE("Received non-sequential packet");
+      continue;
+    } else {
+      last_ack_id_ = tunnel_response.id();
+    }
+
+    if (tunnel_response.has_payload()) {
+      frame_buffer_ += tunnel_response.payload();
+      if (tunnel_response.remaining_bytes() == 0) {
         int bytes_written = write(tunnel_fd_,
             frame_buffer_.data(), frame_buffer_.size());
         if (bytes_written < 0) {

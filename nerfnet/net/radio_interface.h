@@ -18,6 +18,7 @@
 #define NERFNET_NET_RADIO_INTERFACE_H_
 
 #include <deque>
+#include <optional>
 #include <RF24/RF24.h>
 #include <thread>
 
@@ -85,6 +86,12 @@ class RadioInterface : public NonCopyable {
   // the tunnel interface when completely received.
   std::string frame_buffer_;
 
+  // The next ID for packet ID generation.
+  uint8_t next_id_;
+
+  // The last ID that needs to be acknowledged.
+  std::optional<uint8_t> last_ack_id_;
+
   // Sends a message over the radio.
   RequestResult Send(const google::protobuf::Message& request);
 
@@ -94,6 +101,9 @@ class RadioInterface : public NonCopyable {
 
   // Returns the size of the read buffer.
   size_t GetReadBufferSize();
+
+  // Advances the packet ID counter.
+  void AdvanceID();
 
   // Reads from the tunnel and buffers data read.
   void TunnelThread();
