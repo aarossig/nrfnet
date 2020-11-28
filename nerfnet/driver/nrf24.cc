@@ -35,6 +35,10 @@ constexpr uint8_t kSpiBitsPerWord = 8;
 constexpr uint32_t kSpiSpeedHz = 10000000;  // 10MHz.
 
 // Register definitions.
+constexpr uint8_t kRegisterConfig = 0x00;
+constexpr uint8_t kRegisterAutoAck = 0x01;
+constexpr uint8_t kRegisterReceiveAddress = 0x02;
+constexpr uint8_t kRegisterAddressWidth = 0x03;
 constexpr uint8_t kRegisterChannel = 0x05;
 constexpr uint8_t kRegisterRFConfig = 0x06;
 constexpr uint8_t kRegisterRxAddressBase = 0x0a;
@@ -46,7 +50,11 @@ NRF24::NRF24(const std::string& spidev_path, uint16_t ce_pin)
     : ce_pin_(ce_pin),
       channel_(0),
       power_level_(PowerLevel::High),
-      data_rate_(DataRate::R1MBPS) {
+      data_rate_(DataRate::R1MBPS),
+      address_width_(3),
+      auto_ack_enabled_(true),
+      crc_mode_(CRCMode::C16Bit),
+      in_receive_mode_(true) {
   SetupSPIDevice(spidev_path);
   InitChipEnable();
   SetChipEnable(false);
@@ -91,6 +99,15 @@ bool NRF24::SetDataRate(DataRate data_rate) {
   return false;
 }
 
+bool NRF24::SetAddressWidth(size_t address_width) {
+  if (address_width < 3 || address_width > 5) {
+    return false;
+  }
+
+  address_width_ = address_width;
+  return true;
+}
+
 bool NRF24::SetTransmitAddress(const std::vector<uint8_t>& address) {
   if (!ValidateAddress(address)) {
     return false;
@@ -109,7 +126,33 @@ bool NRF24::SetReceiveAddress(size_t id, const std::vector<uint8_t>& address) {
   return true;
 }
 
+void NRF24::SetAutoAckEnabled(bool auto_ack_enabled) {
+  auto_ack_enabled_ = auto_ack_enabled;
+}
+
+bool NRF24::SetCRCMode(CRCMode crc_mode) {
+  switch (crc_mode) {
+    case CRCMode::C8Bit:
+    case CRCMode::C16Bit:
+      crc_mode_ = CRCMode::C16Bit;
+      return true;
+  }
+
+  return false;
+}
+
 bool NRF24::WriteConfig() {
+  // Write the address width.
+  uint8_t read_width;
+  uint8_t width = (address_width_ >> 2);
+  WriteRegister(kRegisterAddressWidth, width);
+  ReadRegister(kRegisterAddressWidth, &read_width);
+  if (read_width != width) {
+    LOGE("Address width readback mismatch: got 0x%02x, expected 0x%02x",
+        read_width, width);
+    return false;
+  }
+
   // Write the RF channel.
   uint8_t read_channel;
   WriteRegister(kRegisterChannel, channel_);
@@ -145,12 +188,14 @@ bool NRF24::WriteConfig() {
   }
 
   // Write receive addresses if specified.
+  uint8_t receive_pipe_enabled = 0x00;
   for (size_t i = 0; i < rx_addresses_.size(); i++) {
     const auto& rx_address = rx_addresses_[i];
     if (rx_address.empty()) {
       continue;
     }
 
+    receive_pipe_enabled |= 1 << i;
     std::vector<uint8_t> read_address(rx_address.size());
     WriteRegister(kRegisterRxAddressBase + i, rx_address);
     ReadRegister(kRegisterRxAddressBase + i, read_address);
@@ -158,6 +203,42 @@ bool NRF24::WriteConfig() {
       LOGE("Rx address readback mismatch");
       return false;
     }
+  }
+
+  // Write receive pipe enables.
+  uint8_t read_receive_pipe_enabled;
+  WriteRegister(kRegisterReceiveAddress, receive_pipe_enabled);
+  ReadRegister(kRegisterReceiveAddress, &read_receive_pipe_enabled);
+  if (read_receive_pipe_enabled != receive_pipe_enabled) {
+    LOGE("Receive pipe enabled mismatch: got 0x%02x, expected 0x%02x",
+        read_receive_pipe_enabled, receive_pipe_enabled);
+    return false;
+  }
+
+  // Write the auto-ack enabled.
+  uint8_t auto_ack = auto_ack_enabled_ ? 0x3f : 0x00;
+  uint8_t read_auto_ack;
+  WriteRegister(kRegisterAutoAck, auto_ack);
+  ReadRegister(kRegisterAutoAck, &read_auto_ack);
+  if (read_auto_ack != auto_ack) {
+    LOGE("Auto ack enabled mismatch: got 0x%02x, expected 0x%02x",
+        read_auto_ack, auto_ack);
+    return false;
+  }
+
+  return WriteConfigRegister();
+}
+
+bool NRF24::WriteConfigRegister() {
+  uint8_t config = 0x7c | (static_cast<uint8_t>(crc_mode_) << 3)
+      | in_receive_mode_;
+  uint8_t read_config;
+  WriteRegister(kRegisterConfig, config);
+  ReadRegister(kRegisterConfig, &read_config);
+  if (read_config != config) {
+    LOGE("Config mismatch: got 0x%02x, expected 0x%02x",
+        read_config, config);
+    return false;
   }
 
   return true;

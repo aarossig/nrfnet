@@ -60,10 +60,26 @@ class NRF24 : public NonCopyable {
   // is invalid.
   bool SetDataRate(DataRate data_rate);
 
+  // Handle setting the address width used on the air. This will truncate
+  // addresses if they are longer than the value specified here.
+  bool SetAddressWidth(size_t address_width);
+
   // Handle setting addresses for different pipes. Returns false if the
   // arguments are invalid (address too short, invalid pipe id).
   bool SetTransmitAddress(const std::vector<uint8_t>& address);
   bool SetReceiveAddress(size_t id, const std::vector<uint8_t>& address);
+
+  // Sets the automatic ankowledgement feature enabled.
+  void SetAutoAckEnabled(bool auto_ack_enabled);
+
+  // The possible CRC modes.
+  enum class CRCMode {
+    C8Bit = 0x00,
+    C16Bit = 0x01,
+  };
+
+  // Sets the CRC mode.
+  bool SetCRCMode(CRCMode mode);
 
   // Writes the configuration to the radio. This is called upon creation of an
   // instance of this driver. It should be called to commit any other changes
@@ -83,12 +99,25 @@ class NRF24 : public NonCopyable {
   DataRate data_rate_;
 
   // Address configurations for the various pipes.
+  size_t address_width_;
   std::vector<uint8_t> tx_address_;
   std::array<std::vector<uint8_t>, 6> rx_addresses_;
+
+  // Set to true when auto acknowlegdement is enabled.
+  bool auto_ack_enabled_;
+
+  // The CRC mode for on-air packets.
+  CRCMode crc_mode_;
+
+  // Set to true when the chip is in receive mode.
+  bool in_receive_mode_;
 
   // The file descriptor for the spidev device used to perform SPI
   // transactions.
   int spi_fd_;
+
+  // Writes the config register.
+  bool WriteConfigRegister();
 
   // Validates the length of a given address.
   bool ValidateAddress(const std::vector<uint8_t>& address, size_t id = 0);
