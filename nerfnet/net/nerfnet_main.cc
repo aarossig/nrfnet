@@ -130,6 +130,12 @@ int main(int argc, char** argv) {
 
   if (test_arg.getValue()) {
     nerfnet::NRF24 radio("/dev/spidev0.0", ce_pin_arg.getValue());
+    if (primary_arg.getValue()) {
+      // radio.EnterTransmitMode();
+    } else if (secondary_arg.getValue()) {
+      radio.EnterReceiveMode();
+    }
+
     while (1);
   }
 

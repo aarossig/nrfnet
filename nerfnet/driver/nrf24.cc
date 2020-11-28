@@ -39,6 +39,7 @@ constexpr uint8_t kRegisterConfig = 0x00;
 constexpr uint8_t kRegisterAutoAck = 0x01;
 constexpr uint8_t kRegisterReceiveAddress = 0x02;
 constexpr uint8_t kRegisterAddressWidth = 0x03;
+constexpr uint8_t kRegisterRetries = 0x04;
 constexpr uint8_t kRegisterChannel = 0x05;
 constexpr uint8_t kRegisterRFConfig = 0x06;
 constexpr uint8_t kRegisterRxAddressBase = 0x0a;
@@ -54,7 +55,9 @@ NRF24::NRF24(const std::string& spidev_path, uint16_t ce_pin)
       address_width_(3),
       auto_ack_enabled_(true),
       crc_mode_(CRCMode::C16Bit),
-      in_receive_mode_(true) {
+      in_receive_mode_(true),
+      retransmit_wait_250us_(2),
+      retransmit_count_(15) {
   SetupSPIDevice(spidev_path);
   InitChipEnable();
   SetChipEnable(false);
@@ -139,6 +142,16 @@ bool NRF24::SetCRCMode(CRCMode crc_mode) {
   }
 
   return false;
+}
+
+bool NRF24::SetRetransmitParams(uint8_t wait_250us, uint8_t count) {
+  if (wait_250us > 0x0f || count > 0x0f) {
+    return false;
+  }
+
+  retransmit_wait_250us_ = wait_250us;
+  retransmit_count_ = count;
+  return true;
 }
 
 bool NRF24::WriteConfig() {
@@ -226,7 +239,29 @@ bool NRF24::WriteConfig() {
     return false;
   }
 
+  // Write the retransmit config.
+  uint8_t retry = (retransmit_wait_250us_ << 4) | retransmit_count_;
+  uint8_t read_retry;
+  WriteRegister(kRegisterRetries, retry);
+  ReadRegister(kRegisterRetries, &read_retry);
+  if (read_retry != retry) {
+    LOGE("Retry readback mismatch: got 0x%02x, expected 0x%02x",
+        read_retry, retry);
+    return false;
+  }
+
   return WriteConfigRegister();
+}
+
+bool NRF24::EnterReceiveMode() {
+  in_receive_mode_ = true;
+  if (!WriteConfigRegister()) {
+    LOGE("Failed to write config upon entering receive mode");
+    return false;
+  }
+
+  SetChipEnable(true);
+  return true;
 }
 
 bool NRF24::WriteConfigRegister() {

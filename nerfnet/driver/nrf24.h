@@ -81,11 +81,24 @@ class NRF24 : public NonCopyable {
   // Sets the CRC mode.
   bool SetCRCMode(CRCMode mode);
 
+  // Sets the retransmit parameters. The first is a multiplier for how many
+  // microseconds to wait between retransmits. The formula is:
+  //
+  // (wait_250us + 1) * 250us.
+  //
+  // The second param is the maximum number of retransmits.
+  //
+  // Returns false if any of these params are out of range.
+  bool SetRetransmitParams(uint8_t wait_250us, uint8_t count);
+
   // Writes the configuration to the radio. This is called upon creation of an
   // instance of this driver. It should be called to commit any other changes
   // such as setting the channel or data rate. False is returned on error and
   // errors are logged.
   bool WriteConfig();
+
+  // Enables receive mode. Returns false on error and logs the error.
+  bool EnterReceiveMode();
 
  private:
   // The GPIO for chip-enable.
@@ -111,6 +124,10 @@ class NRF24 : public NonCopyable {
 
   // Set to true when the chip is in receive mode.
   bool in_receive_mode_;
+
+  // The parameters for retransmits.
+  uint8_t retransmit_wait_250us_;
+  uint8_t retransmit_count_;
 
   // The file descriptor for the spidev device used to perform SPI
   // transactions.
