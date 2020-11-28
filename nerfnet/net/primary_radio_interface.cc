@@ -85,8 +85,7 @@ PrimaryRadioInterface::RequestResult PrimaryRadioInterface::Ping(
 
 void PrimaryRadioInterface::Run() {
   while (1) {
-    SleepUs(rf_delay_us_);
-
+    SleepUs(100);
     std::lock_guard<std::mutex> lock(read_buffer_mutex_);
 
     Request request;
@@ -104,8 +103,6 @@ void PrimaryRadioInterface::Run() {
       LOGE("Failed to send network tunnel txrx request");
       continue;
     }
-
-    SleepUs(rf_delay_us_);
 
     Response response;
     result = Receive(response, /*timeout_us=*/100000);

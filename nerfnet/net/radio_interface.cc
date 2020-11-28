@@ -36,9 +36,10 @@ RadioInterface::RadioInterface(uint16_t ce_pin, int tunnel_fd,
   radio_.setChannel(1);
   radio_.setPALevel(RF24_PA_MAX);
   radio_.setDataRate(RF24_2MBPS);
+  radio_.setAddressWidth(3);
   radio_.setAutoAck(1);
-  radio_.setRetries(2, 15);
-  radio_.setCRCLength(RF24_CRC_16);
+  radio_.setRetries(0, 15);
+  radio_.setCRCLength(RF24_CRC_8);
   CHECK(radio_.isChipConnected(), "NRF24L01 is unavailable");
 }
 
@@ -57,6 +58,7 @@ RadioInterface::RequestResult RadioInterface::Send(
   if (serialized_request.size() > (kMaxPacketSize - 1)) {
     LOGE("serialized message is too large (%zu vs %zu)",
         serialized_request.size(), (kMaxPacketSize - 1));
+    radio_.startListening();
     return RequestResult::Malformed;
   }
 
@@ -64,7 +66,12 @@ RadioInterface::RequestResult RadioInterface::Send(
       static_cast<char>(serialized_request.size()));
   if (!radio_.write(serialized_request.data(), serialized_request.size())) {
     LOGE("Failed to write request");
+    radio_.startListening();
     return RequestResult::TransmitError;
+  }
+
+  while (!radio_.txStandBy()) {
+    LOGI("Waiting for transmit standby");
   }
 
   radio_.startListening();
@@ -80,8 +87,6 @@ RadioInterface::RequestResult RadioInterface::Receive(
       LOGE("Timeout receiving response");
       return RequestResult::Timeout;
     }
-
-    SleepUs(1000);
   }
 
   std::string packet(kMaxPacketSize, '\0');
@@ -109,7 +114,7 @@ size_t RadioInterface::GetReadBufferSize() {
 
 void RadioInterface::TunnelThread() {
   // The maximum number of network frames to buffer here.
-  constexpr size_t kMaxBufferedFrames = 3;
+  constexpr size_t kMaxBufferedFrames = 1024;
 
   running_ = true;
   uint8_t buffer[3200];
@@ -126,7 +131,7 @@ void RadioInterface::TunnelThread() {
     }
 
     while (GetReadBufferSize() > kMaxBufferedFrames && running_) {
-      SleepUs(10000);
+      SleepUs(1000);
     }
   }
 }

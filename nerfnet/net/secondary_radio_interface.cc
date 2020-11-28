@@ -105,8 +105,6 @@ void SecondaryRadioInterface::HandleNetworkTunnelTxRx(
     tunnel_response->set_remaining_bytes(frame.size() - transfer_size);
   }
 
-  SleepUs(rf_delay_us_);
-
   auto status = Send(response);
   if (status != RequestResult::Success) {
     LOGE("Failed to send network tunnel txrx response");
