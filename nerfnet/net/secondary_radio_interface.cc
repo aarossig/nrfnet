@@ -83,9 +83,10 @@ void SecondaryRadioInterface::HandlePing(const Request::Ping& ping) {
     ping_response->set_value(ping.value());
   }
 
+  LOGI("Responding to ping request");
   auto status = Send(response);
   if (status != RequestResult::Success) {
-    LOGE("failed to send ping response");
+    LOGE("Failed to send ping response");
   }
 }
 
