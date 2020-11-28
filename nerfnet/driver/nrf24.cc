@@ -36,12 +36,17 @@ constexpr uint32_t kSpiSpeedHz = 10000000;  // 10MHz.
 
 // Register definitions.
 constexpr uint8_t kRegisterChannel = 0x05;
+constexpr uint8_t kRegisterRFConfig = 0x06;
+constexpr uint8_t kRegisterRxAddressBase = 0x0a;
+constexpr uint8_t kRegisterTxAddress = 0x10;
 
 }  // anonymous namespace
 
 NRF24::NRF24(const std::string& spidev_path, uint16_t ce_pin)
     : ce_pin_(ce_pin),
-      channel_(0) {
+      channel_(0),
+      power_level_(PowerLevel::High),
+      data_rate_(DataRate::R1MBPS) {
   SetupSPIDevice(spidev_path);
   InitChipEnable();
   SetChipEnable(false);
@@ -61,6 +66,49 @@ bool NRF24::SetChannel(uint8_t channel) {
   return true;
 }
 
+bool NRF24::SetPowerLevel(PowerLevel power_level) {
+  switch (power_level) {
+    case PowerLevel::Min:
+    case PowerLevel::Med:
+    case PowerLevel::High:
+    case PowerLevel::Max:
+      power_level_ = power_level;
+      return true;
+  }
+
+  return false;
+}
+
+bool NRF24::SetDataRate(DataRate data_rate) {
+  switch (data_rate) {
+    case DataRate::R1MBPS:
+    case DataRate::R2MBPS:
+    case DataRate::R250KBPS:
+      data_rate_ = data_rate;
+      return true;
+  }
+
+  return false;
+}
+
+bool NRF24::SetTransmitAddress(const std::vector<uint8_t>& address) {
+  if (!ValidateAddress(address)) {
+    return false;
+  }
+
+  tx_address_ = address;
+  return true;
+}
+
+bool NRF24::SetReceiveAddress(size_t id, const std::vector<uint8_t>& address) {
+  if (!ValidateAddress(address) || id >= rx_addresses_.size()) {
+    return false;
+  }
+
+  rx_addresses_[id] = address;
+  return true;
+}
+
 bool NRF24::WriteConfig() {
   // Write the RF channel.
   uint8_t read_channel;
@@ -72,7 +120,59 @@ bool NRF24::WriteConfig() {
     return false;
   }
 
+  // Write the RF configuration.
+  uint8_t rf_config = (static_cast<uint8_t>(power_level_) << 1)
+      | ((static_cast<uint8_t>(data_rate_) & 0x01) << 3)
+      | ((static_cast<uint8_t>(data_rate_) & 0x02) << 5);
+  uint8_t read_rf_config;
+  WriteRegister(kRegisterRFConfig, rf_config);
+  ReadRegister(kRegisterRFConfig, &read_rf_config);
+  if (read_rf_config != rf_config) {
+    LOGE("RF config readback mismatch: got 0x%02x, expected 0x%02x",
+        read_rf_config, rf_config);
+    return false;
+  }
+
+  // Write the transmit address if specified.
+  if (!tx_address_.empty()) {
+    std::vector<uint8_t> read_address(tx_address_.size());
+    WriteRegister(kRegisterTxAddress, tx_address_);
+    ReadRegister(kRegisterTxAddress, read_address);
+    if (read_address != tx_address_) {
+      LOGE("Tx address readback mismatch");
+      return false;
+    }
+  }
+
+  // Write receive addresses if specified.
+  for (size_t i = 0; i < rx_addresses_.size(); i++) {
+    const auto& rx_address = rx_addresses_[i];
+    if (rx_address.empty()) {
+      continue;
+    }
+
+    std::vector<uint8_t> read_address(rx_address.size());
+    WriteRegister(kRegisterRxAddressBase + i, rx_address);
+    ReadRegister(kRegisterRxAddressBase + i, read_address);
+    if (read_address != rx_address) {
+      LOGE("Rx address readback mismatch");
+      return false;
+    }
+  }
+
   return true;
+}
+
+bool NRF24::ValidateAddress(const std::vector<uint8_t>& address, size_t id) {
+  if (id < 2 && address.size() >= 3 && address.size() <= 5) {
+    return true;
+  }
+
+  if (id < 5 && address.size() == 1) {
+    return true;
+  }
+
+  return false;
 }
 
 void NRF24::WriteRegister(uint8_t address, uint8_t value) {
