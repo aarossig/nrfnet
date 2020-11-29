@@ -49,40 +49,6 @@ PrimaryRadioInterface::PrimaryRadioInterface(
   radio_.openReadingPipe(kPipeId, reading_addr);
 }
 
-PrimaryRadioInterface::RequestResult PrimaryRadioInterface::Ping(
-    const std::optional<uint32_t>& value) {
-  Request request;
-  auto* ping = request.mutable_ping();
-  if (value.has_value()) {
-    ping->set_value(*value);
-  }
-
-  auto result = Send(request);
-  if (result != RequestResult::Success) {
-    LOGE("Failed to send ping request");
-    return result;
-  }
-
-  Response response;
-  result = Receive(response, /*timeout_us=*/100000);
-  if (result != RequestResult::Success) {
-    LOGE("Failed to receive ping response");
-    return result;
-  }
-
-  if (!response.has_ping()) {
-    LOGE("Response missing ping response");
-    return RequestResult::Malformed;
-  } else if (value.has_value()
-             && (!response.ping().has_value()
-		 || response.ping().value() != value)) {
-    LOGE("Response value mismatch");
-    return RequestResult::Malformed;
-  }
-
-  return result;
-}
-
 void PrimaryRadioInterface::Run() {
   CHECK(ConnectionReset(), "Failed to open connection");
   while (1) {

@@ -36,7 +36,6 @@ class SecondaryRadioInterface : public RadioInterface {
   void HandleRequest(const Request& request);
 
   // Request handlers.
-  void HandlePing(const Request::Ping& ping);
   void HandleNetworkTunnelTxRx(const Request::NetworkTunnelTxRx& tunnel);
   void HandleNetworkTunnelReset(const Request::NetworkTunnelReset& reset);
 

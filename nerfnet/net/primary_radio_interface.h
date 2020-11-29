@@ -31,9 +31,6 @@ class PrimaryRadioInterface : public RadioInterface {
                         uint32_t primary_addr, uint32_t secondary_addr,
                         uint64_t poll_interval_us);
 
-  // Sends a ping with the supplied value to round trip.
-  RequestResult Ping(const std::optional<uint32_t>& value);
-
   // Runs the interface.
   void Run();
 

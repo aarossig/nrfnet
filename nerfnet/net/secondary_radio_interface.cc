@@ -64,9 +64,6 @@ void SecondaryRadioInterface::Run() {
 
 void SecondaryRadioInterface::HandleRequest(const Request& request) {
   switch (request.request_case()) {
-    case Request::kPing:
-      HandlePing(request.ping());
-      break;
     case Request::kNetworkTunnelTxrx:
       HandleNetworkTunnelTxRx(request.network_tunnel_txrx());
       break;
@@ -76,20 +73,6 @@ void SecondaryRadioInterface::HandleRequest(const Request& request) {
     default:
       LOGE("Received unknown request");
       break;
-  }
-}
-
-void SecondaryRadioInterface::HandlePing(const Request::Ping& ping) {
-  Response response;
-  auto* ping_response = response.mutable_ping();
-  if (ping.has_value()) {
-    ping_response->set_value(ping.value());
-  }
-
-  LOGI("Responding to ping request");
-  auto status = Send(response);
-  if (status != RequestResult::Success) {
-    LOGE("Failed to send ping response");
   }
 }
 
