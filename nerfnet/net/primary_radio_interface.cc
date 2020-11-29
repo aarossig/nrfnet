@@ -60,24 +60,16 @@ void PrimaryRadioInterface::Run() {
       LOGI("Resetting connection");
       if (!ConnectionReset()) {
         LOGE("Connection reset failed");
+        HandleTransactionFailure();
       } else {
         LOGI("Connection reset successfully");
-        poll_fail_count_ = 0;
-        current_poll_interval_us_ = poll_interval_us_;
         connection_reset_required_ = false;
       }
     } else if (PerformTunnelTransfer()) {
       poll_fail_count_ = 0;
       current_poll_interval_us_ = poll_interval_us_;
     } else {
-      poll_fail_count_++;
-      if (poll_fail_count_ > 10) {
-        if (current_poll_interval_us_ < 1000000) {
-          current_poll_interval_us_ *= 2;
-        } else {
-          connection_reset_required_ = true;
-        }
-      }
+      HandleTransactionFailure();
     }
   }
 }
@@ -174,6 +166,17 @@ bool PrimaryRadioInterface::PerformTunnelTransfer() {
   }
 
   return success;
+}
+
+void PrimaryRadioInterface::HandleTransactionFailure() {
+  poll_fail_count_++;
+  if (poll_fail_count_ > 10) {
+    if (current_poll_interval_us_ < 1000000) {
+      current_poll_interval_us_ *= 2;
+    } else {
+      connection_reset_required_ = true;
+    }
+  }
 }
 
 }  // namespace nerfnet

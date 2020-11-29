@@ -49,6 +49,9 @@ class PrimaryRadioInterface : public RadioInterface {
   // Sends and receives messages to exchange network packets.
   bool PerformTunnelTransfer();
 
+  // Updates the backoff configuration in the light of a failure.
+  void HandleTransactionFailure();
+
 };
 
 }  // namespace nerfnet
