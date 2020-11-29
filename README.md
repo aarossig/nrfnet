@@ -74,7 +74,7 @@ sudo nerfnet --secondary --tunnel_address 10.0.0.1 --tunnel_mask 255.0.0.0
 
 #### channel
 
-The NRF24L01 radios have 128 channesl to choose from (0 to 127). It may be
+The NRF24L01 radios have 128 channels to choose from (0 to 127). It may be
 helpful to adjust the channel if a segment of the 2.4GHz band is congested.
 These radios default to channel 1.
 
@@ -115,7 +115,7 @@ otherwise.
 
 ## trivia
 
-This README was written over an SSH connection that was established over a
+This README was written using an SSH connection that was established over a
 nerfnet wireless link.
 
 This protocol is vulnerable to pretty much every attack known to exist. Here
@@ -125,10 +125,14 @@ are the vulnerabilities that I can think of.
 2) No encryption.
 3) Subject to replay/timing attacks.
 
-The nice thing with widespread odoption of TLS these days makes these less
-critical, but unencrypted traffic is vulnerable to eavesdropping and
-manipulation.
+The nice thing about widespread odoption of TLS these days is that these
+vulnerabilities become less critical. Unencrypted traffic is vulnerable
+to eavesdropping and manipulation.
 
-Maybe don't use this for anything too important.
+It is also possible that if two users of nerfnet reside on the same channel
+that their packets will cause loads of errors for each other. It would be
+best to avoid that by selecting different channels.
+
+Maybe don't use this for anything too important, or do ;)
 
 Enjoy!
