@@ -29,7 +29,7 @@ class PrimaryRadioInterface : public RadioInterface {
   // Setup the primary radio link.
   PrimaryRadioInterface(uint16_t ce_pin, int tunnel_fd,
                         uint32_t primary_addr, uint32_t secondary_addr,
-                        uint64_t poll_interval_us);
+                        uint8_t channel, uint64_t poll_interval_us);
 
   // Runs the interface.
   void Run();

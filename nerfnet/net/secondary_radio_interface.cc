@@ -26,8 +26,8 @@ namespace nerfnet {
 
 SecondaryRadioInterface::SecondaryRadioInterface(
     uint16_t ce_pin, int tunnel_fd,
-    uint32_t primary_addr, uint32_t secondary_addr)
-    : RadioInterface(ce_pin, tunnel_fd, primary_addr, secondary_addr),
+    uint32_t primary_addr, uint32_t secondary_addr, uint8_t channel)
+    : RadioInterface(ce_pin, tunnel_fd, primary_addr, secondary_addr, channel),
       payload_in_flight_(false) {
   uint8_t writing_addr[5] = {
     static_cast<uint8_t>(secondary_addr),

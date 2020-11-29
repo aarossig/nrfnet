@@ -26,7 +26,8 @@ class SecondaryRadioInterface : public RadioInterface {
  public:
   // Setup the secondary radio link.
   SecondaryRadioInterface(uint16_t ce_pin, int tunnel_fd,
-                          uint32_t primary_addr, uint32_t secondary_addr);
+                          uint32_t primary_addr, uint32_t secondary_addr,
+                          uint8_t channel);
 
   // Runs the interface listening for commands and responding.
   void Run();

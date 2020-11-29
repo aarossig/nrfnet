@@ -34,7 +34,8 @@ class RadioInterface : public NonCopyable {
  public:
   // Setup the radio interface.
   RadioInterface(uint16_t ce_pin, int tunnel_fd,
-                 uint32_t primary_addr, uint32_t secondary_addr);
+                 uint32_t primary_addr, uint32_t secondary_addr,
+                 uint8_t channel);
   ~RadioInterface();
 
   // The possible results of a request operation.

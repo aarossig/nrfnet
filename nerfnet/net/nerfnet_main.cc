@@ -118,6 +118,8 @@ int main(int argc, char** argv) {
   TCLAP::ValueArg<uint32_t> secondary_addr_arg("", "secondary_addr",
       "The address to use for the secondary side of nerfnet.",
       false, 0x90009000, "address", cmd);
+  TCLAP::ValueArg<uint8_t> channel_arg("", "channel",
+      "The channel to use for transmit/receive.", false, 1, "channel", cmd);
   TCLAP::ValueArg<uint32_t> poll_interval_us_arg("", "poll_interval_us",
       "Used by the primary radio only to determine how often to poll.",
       false, 100, "microseconds", cmd);
@@ -149,13 +151,14 @@ int main(int argc, char** argv) {
     nerfnet::PrimaryRadioInterface radio_interface(
         ce_pin_arg.getValue(), tunnel_fd,
         primary_addr_arg.getValue(), secondary_addr_arg.getValue(),
-        poll_interval_us_arg.getValue());
+        channel_arg.getValue(), poll_interval_us_arg.getValue());
     radio_interface.SetTunnelLogsEnabled(enable_tunnel_logs_arg.getValue());
     radio_interface.Run();
   } else if (secondary_arg.getValue()) {
     nerfnet::SecondaryRadioInterface radio_interface(
         ce_pin_arg.getValue(), tunnel_fd,
-        primary_addr_arg.getValue(), secondary_addr_arg.getValue());
+        primary_addr_arg.getValue(), secondary_addr_arg.getValue(),
+        channel_arg.getValue());
     radio_interface.SetTunnelLogsEnabled(enable_tunnel_logs_arg.getValue());
     radio_interface.Run();
   } else {
