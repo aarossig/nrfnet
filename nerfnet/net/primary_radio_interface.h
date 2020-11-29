@@ -29,13 +29,17 @@ class PrimaryRadioInterface : public RadioInterface {
   // Setup the primary radio link.
   PrimaryRadioInterface(uint16_t ce_pin, int tunnel_fd,
                         uint32_t primary_addr, uint32_t secondary_addr,
-                        uint64_t rf_delay_us);
+                        uint64_t poll_interval_us);
 
   // Sends a ping with the supplied value to round trip.
   RequestResult Ping(const std::optional<uint32_t>& value);
 
   // Runs the interface.
   void Run();
+
+ private:
+  // The interval between poll operations to the secondary radio.
+  const uint64_t poll_interval_us_;
 };
 
 }  // namespace nerfnet

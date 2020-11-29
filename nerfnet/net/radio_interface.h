@@ -32,8 +32,7 @@ class RadioInterface : public NonCopyable {
  public:
   // Setup the radio interface.
   RadioInterface(uint16_t ce_pin, int tunnel_fd,
-                 uint32_t primary_addr, uint32_t secondary_addr,
-                 uint64_t rf_delay_us);
+                 uint32_t primary_addr, uint32_t secondary_addr);
   ~RadioInterface();
 
   // The possible results of a request operation.
@@ -70,9 +69,6 @@ class RadioInterface : public NonCopyable {
   // The addresses to use for this radio pair.
   const uint32_t primary_addr_;
   const uint32_t secondary_addr_;
-
-  // The delay to use between RF operation.s
-  const uint64_t rf_delay_us_;
 
   // The thread to read from the tunnel interface on.
   std::thread tunnel_thread_;
