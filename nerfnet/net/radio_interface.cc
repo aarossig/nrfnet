@@ -32,7 +32,7 @@ RadioInterface::RadioInterface(uint16_t ce_pin, int tunnel_fd,
       tunnel_thread_(&RadioInterface::TunnelThread, this),
       next_id_(1),
       tunnel_logs_enabled_(false) {
-  radio_.begin();
+  CHECK(radio_.begin(), "Failed to start NRF24L01");
   radio_.setChannel(1);
   radio_.setPALevel(RF24_PA_MAX);
   radio_.setDataRate(RF24_2MBPS);
