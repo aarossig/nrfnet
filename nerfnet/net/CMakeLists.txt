@@ -23,7 +23,6 @@ target_include_directories(nerfnet PUBLIC
 
 target_link_libraries(nerfnet PUBLIC
   net-proto
-  nrf24
   rf24
   util
 )

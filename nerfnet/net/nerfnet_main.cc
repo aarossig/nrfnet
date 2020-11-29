@@ -26,7 +26,6 @@
 #include <tclap/CmdLine.h>
 #include <unistd.h>
 
-#include "nerfnet/driver/nrf24.h"
 #include "nerfnet/net/primary_radio_interface.h"
 #include "nerfnet/net/secondary_radio_interface.h"
 #include "nerfnet/util/log.h"
@@ -124,20 +123,7 @@ int main(int argc, char** argv) {
       false, 100, "microseconds", cmd);
   TCLAP::SwitchArg ping_arg("", "ping",
       "Only used by the primary radio. Issue a ping request then quit.", cmd);
-  TCLAP::SwitchArg test_arg("", "test",
-      "Test the new driver and quit. This will be removed.", cmd);
   cmd.parse(argc, argv);
-
-  if (test_arg.getValue()) {
-    nerfnet::NRF24 radio("/dev/spidev0.0", ce_pin_arg.getValue());
-    if (primary_arg.getValue()) {
-      // radio.EnterTransmitMode();
-    } else if (secondary_arg.getValue()) {
-      radio.EnterReceiveMode();
-    }
-
-    while (1);
-  }
 
   std::string tunnel_ip = tunnel_ip_arg.getValue();
   if (!tunnel_ip_arg.isSet()) {
