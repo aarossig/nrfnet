@@ -54,13 +54,11 @@ RadioInterface::RequestResult RadioInterface::Send(
 
   if (request.size() > kMaxPacketSize) {
     LOGE("Request is too large (%zu vs %zu)", request.size(), kMaxPacketSize);
-    radio_.startListening();
     return RequestResult::Malformed;
   }
 
   if (!radio_.write(request.data(), request.size())) {
     LOGE("Failed to write request");
-    radio_.startListening();
     return RequestResult::TransmitError;
   }
 
@@ -68,12 +66,12 @@ RadioInterface::RequestResult RadioInterface::Send(
     LOGI("Waiting for transmit standby");
   }
 
-  radio_.startListening();
   return RequestResult::Success;
 }
 
 RadioInterface::RequestResult RadioInterface::Receive(
     std::vector<uint8_t>& response, uint64_t timeout_us) {
+  radio_.startListening();
   uint64_t start_us = TimeNowUs();
   while (!radio_.available()) {
     if (timeout_us != 0 && (start_us + timeout_us) < TimeNowUs()) {

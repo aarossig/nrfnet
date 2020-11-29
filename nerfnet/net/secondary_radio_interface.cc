@@ -47,7 +47,6 @@ SecondaryRadioInterface::SecondaryRadioInterface(
 
   radio_.openWritingPipe(writing_addr);
   radio_.openReadingPipe(kPipeId, reading_addr);
-  radio_.startListening();
 }
 
 void SecondaryRadioInterface::Run() {
