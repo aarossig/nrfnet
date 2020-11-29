@@ -30,7 +30,8 @@ PrimaryRadioInterface::PrimaryRadioInterface(
     uint64_t poll_interval_us)
     : RadioInterface(ce_pin, tunnel_fd, primary_addr, secondary_addr, channel),
       poll_interval_us_(poll_interval_us),
-      current_poll_interval_us_(poll_interval_us_) {
+      current_poll_interval_us_(poll_interval_us_),
+      connection_reset_required_(true) {
   uint8_t writing_addr[5] = {
     static_cast<uint8_t>(primary_addr),
     static_cast<uint8_t>(primary_addr >> 8),
@@ -52,11 +53,20 @@ PrimaryRadioInterface::PrimaryRadioInterface(
 }
 
 void PrimaryRadioInterface::Run() {
-  CHECK(ConnectionReset(), "Failed to open connection");
   while (1) {
     SleepUs(current_poll_interval_us_);
     std::lock_guard<std::mutex> lock(read_buffer_mutex_);
-    if (PerformTunnelTransfer()) {
+    if (connection_reset_required_) {
+      LOGI("Resetting connection");
+      if (!ConnectionReset()) {
+        LOGE("Connection reset failed");
+      } else {
+        LOGI("Connection reset successfully");
+        poll_fail_count_ = 0;
+        current_poll_interval_us_ = poll_interval_us_;
+        connection_reset_required_ = false;
+      }
+    } else if (PerformTunnelTransfer()) {
       poll_fail_count_ = 0;
       current_poll_interval_us_ = poll_interval_us_;
     } else {
@@ -64,15 +74,8 @@ void PrimaryRadioInterface::Run() {
       if (poll_fail_count_ > 10) {
         if (current_poll_interval_us_ < 1000000) {
           current_poll_interval_us_ *= 2;
-        }
-
-        LOGI("Attempting to recover connection");
-        if (!ConnectionReset()) {
-          LOGE("Connection recovery failed");
         } else {
-          LOGI("Connection recovered successfully");
-          poll_fail_count_ = 0;
-          current_poll_interval_us_ = poll_interval_us_;
+          connection_reset_required_ = true;
         }
       }
     }

@@ -41,6 +41,7 @@ class PrimaryRadioInterface : public RadioInterface {
   // Logic for poll backoff when the secondary radio is not responding.
   int poll_fail_count_;
   uint64_t current_poll_interval_us_;
+  bool connection_reset_required_;
 
   // Requests that a new connection be opened.
   bool ConnectionReset();
