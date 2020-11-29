@@ -29,7 +29,8 @@ PrimaryRadioInterface::PrimaryRadioInterface(
     uint32_t primary_addr, uint32_t secondary_addr, uint8_t channel,
     uint64_t poll_interval_us)
     : RadioInterface(ce_pin, tunnel_fd, primary_addr, secondary_addr, channel),
-      poll_interval_us_(poll_interval_us) {
+      poll_interval_us_(poll_interval_us),
+      current_poll_interval_us_(poll_interval_us_) {
   uint8_t writing_addr[5] = {
     static_cast<uint8_t>(primary_addr),
     static_cast<uint8_t>(primary_addr >> 8),
@@ -53,13 +54,36 @@ PrimaryRadioInterface::PrimaryRadioInterface(
 void PrimaryRadioInterface::Run() {
   CHECK(ConnectionReset(), "Failed to open connection");
   while (1) {
-    SleepUs(poll_interval_us_);
+    SleepUs(current_poll_interval_us_);
     std::lock_guard<std::mutex> lock(read_buffer_mutex_);
-    PerformTunnelTransfer();
+    if (PerformTunnelTransfer()) {
+      poll_fail_count_ = 0;
+      current_poll_interval_us_ = poll_interval_us_;
+    } else {
+      poll_fail_count_++;
+      if (poll_fail_count_ > 10) {
+        if (current_poll_interval_us_ < 1000000) {
+          current_poll_interval_us_ *= 2;
+        }
+
+        LOGI("Attempting to recover connection");
+        if (!ConnectionReset()) {
+          LOGE("Connection recovery failed");
+        } else {
+          LOGI("Connection recovered successfully");
+          poll_fail_count_ = 0;
+          current_poll_interval_us_ = poll_interval_us_;
+        }
+      }
+    }
   }
 }
 
 bool PrimaryRadioInterface::ConnectionReset() {
+  next_id_ = 1;
+  last_ack_id_.reset();
+  frame_buffer_.clear();
+
   std::vector<uint8_t> request(kMaxPacketSize, 0x00);
   auto result = Send(request);
   if (result != RequestResult::Success) {
@@ -77,7 +101,7 @@ bool PrimaryRadioInterface::ConnectionReset() {
   return response[0] == 0x00;
 }
 
-void PrimaryRadioInterface::PerformTunnelTransfer() {
+bool PrimaryRadioInterface::PerformTunnelTransfer() {
   TunnelTxRxPacket tunnel;
   tunnel.id = next_id_;
   if (last_ack_id_.has_value()) {
@@ -93,35 +117,37 @@ void PrimaryRadioInterface::PerformTunnelTransfer() {
   }
 
   std::vector<uint8_t> request;
-  if (!EncodeTunnelTxRxPacket(tunnel, request)) {
-    return;
-  }
+  CHECK(EncodeTunnelTxRxPacket(tunnel, request),
+      "Failed to encode tunnel packet");
 
   auto result = Send(request);
   if (result != RequestResult::Success) {
     LOGE("Failed to send network tunnel txrx request");
-    return;
+    return false;
   }
 
   std::vector<uint8_t> response(kMaxPacketSize);
   result = Receive(response, /*timeout_us=*/100000);
   if (result != RequestResult::Success) {
     LOGE("Failed to receive network tunnel txrx request");
-    return;
+    return false;
   }
   
   if (!DecodeTunnelTxRxPacket(response, tunnel)) {
-    return;
+    return false;
   }
-  
+
   if (!tunnel.id.has_value() || !tunnel.ack_id.has_value()) {
     LOGE("Missing tunnel fields");
-    return;
+    return false;
   }
-  
+
+
+  bool success = true;
   if (tunnel.ack_id.value() != next_id_) {
     LOGE("Secondary radio failed to ack, retransmitting: "
          "ack_id=%u, next_id=%u", tunnel.ack_id.value(), next_id_);
+    success = false;
   } else {
     AdvanceID();
     if (!read_buffer_.empty()) {
@@ -135,6 +161,7 @@ void PrimaryRadioInterface::PerformTunnelTransfer() {
 
   if (!ValidateID(tunnel.id.value())) {
     LOGE("Received non-sequential packet");
+    success = false;
   } else if (!tunnel.payload.empty()) {
     frame_buffer_.insert(frame_buffer_.end(),
         tunnel.payload.begin(), tunnel.payload.end());
@@ -142,6 +169,8 @@ void PrimaryRadioInterface::PerformTunnelTransfer() {
       WriteTunnel();
     }
   }
+
+  return success;
 }
 
 }  // namespace nerfnet

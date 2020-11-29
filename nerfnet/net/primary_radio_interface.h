@@ -38,11 +38,16 @@ class PrimaryRadioInterface : public RadioInterface {
   // The interval between poll operations to the secondary radio.
   const uint64_t poll_interval_us_;
 
+  // Logic for poll backoff when the secondary radio is not responding.
+  int poll_fail_count_;
+  uint64_t current_poll_interval_us_;
+
   // Requests that a new connection be opened.
   bool ConnectionReset();
 
   // Sends and receives messages to exchange network packets.
-  void PerformTunnelTransfer();
+  bool PerformTunnelTransfer();
+
 };
 
 }  // namespace nerfnet
