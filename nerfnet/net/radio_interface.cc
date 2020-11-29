@@ -30,7 +30,8 @@ RadioInterface::RadioInterface(uint16_t ce_pin, int tunnel_fd,
       primary_addr_(primary_addr),
       secondary_addr_(secondary_addr),
       tunnel_thread_(&RadioInterface::TunnelThread, this),
-      next_id_(1) {
+      next_id_(1),
+      tunnel_logs_enabled_(false) {
   radio_.begin();
   radio_.setChannel(1);
   radio_.setPALevel(RF24_PA_MAX);
@@ -128,7 +129,9 @@ void RadioInterface::TunnelThread() {
     {
       std::lock_guard<std::mutex> lock(read_buffer_mutex_);
       read_buffer_.emplace_back(&buffer[0], &buffer[bytes_read]);
-      LOGI("Read %zu bytes from the tunnel", read_buffer_.back().size());
+      if (tunnel_logs_enabled_) {
+        LOGI("Read %zu bytes from the tunnel", read_buffer_.back().size());
+      }
     }
 
     while (GetReadBufferSize() > kMaxBufferedFrames && running_) {
@@ -189,6 +192,19 @@ bool RadioInterface::EncodeTunnelTxRxPacket(
   }
 
   return true;
+}
+
+void RadioInterface::WriteTunnel() {
+  int bytes_written = write(tunnel_fd_,
+      frame_buffer_.data(), frame_buffer_.size());
+  if (tunnel_logs_enabled_) {
+    LOGI("Writing %d bytes to the tunnel", frame_buffer_.size());
+  }
+
+  frame_buffer_.clear();
+  if (bytes_written < 0) {
+    LOGE("Failed to write to tunnel %s (%d)", strerror(errno), errno);
+  }
 }
 
 }  // namespace nerfnet

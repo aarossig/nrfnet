@@ -52,6 +52,8 @@ class RadioInterface : public NonCopyable {
     TransmitError,
   };
 
+  void SetTunnelLogsEnabled(bool enabled) { tunnel_logs_enabled_ = enabled; }
+
  protected:
   // The number of microseconds to poll over.
   static constexpr uint32_t kPollIntervalUs = 1000;
@@ -103,6 +105,9 @@ class RadioInterface : public NonCopyable {
   // The last ID that needs to be acknowledged.
   std::optional<uint8_t> last_ack_id_;
 
+  // Whether to log successful tunnel read/write operations.
+  bool tunnel_logs_enabled_;
+
   // Sends a message over the radio.
   RequestResult Send(const std::vector<uint8_t>& request);
 
@@ -130,6 +135,9 @@ class RadioInterface : public NonCopyable {
       TunnelTxRxPacket& tunnel);
   bool EncodeTunnelTxRxPacket(const TunnelTxRxPacket& tunnel,
       std::vector<uint8_t>& request);
+
+  // Writes the current frame buffer to the tunnel.
+  void WriteTunnel();
 };
 
 }  // namespace nerfnet

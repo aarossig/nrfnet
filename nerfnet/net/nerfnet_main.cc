@@ -121,6 +121,8 @@ int main(int argc, char** argv) {
   TCLAP::ValueArg<uint32_t> poll_interval_us_arg("", "poll_interval_us",
       "Used by the primary radio only to determine how often to poll.",
       false, 100, "microseconds", cmd);
+  TCLAP::SwitchArg enable_tunnel_logs_arg("", "enable_tunnel_logs",
+      "Set to enable verbose logs for read/writes from the tunnel.", cmd);
   cmd.parse(argc, argv);
 
   std::string tunnel_ip = tunnel_ip_arg.getValue();
@@ -148,11 +150,13 @@ int main(int argc, char** argv) {
         ce_pin_arg.getValue(), tunnel_fd,
         primary_addr_arg.getValue(), secondary_addr_arg.getValue(),
         poll_interval_us_arg.getValue());
+    radio_interface.SetTunnelLogsEnabled(enable_tunnel_logs_arg.getValue());
     radio_interface.Run();
   } else if (secondary_arg.getValue()) {
     nerfnet::SecondaryRadioInterface radio_interface(
         ce_pin_arg.getValue(), tunnel_fd,
         primary_addr_arg.getValue(), secondary_addr_arg.getValue());
+    radio_interface.SetTunnelLogsEnabled(enable_tunnel_logs_arg.getValue());
     radio_interface.Run();
   } else {
     CHECK(false, "Primary or secondary mode must be enabled");

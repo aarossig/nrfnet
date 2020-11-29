@@ -138,13 +138,7 @@ void PrimaryRadioInterface::PerformTunnelTransfer() {
     frame_buffer_.insert(frame_buffer_.end(),
         tunnel.payload.begin(), tunnel.payload.end());
     if (tunnel.bytes_left <= kMaxPayloadSize) {
-      int bytes_written = write(tunnel_fd_,
-          frame_buffer_.data(), frame_buffer_.size());
-      LOGI("Writing %d bytes to the tunnel", frame_buffer_.size());
-      frame_buffer_.clear();
-      if (bytes_written < 0) {
-        LOGE("Failed to write to tunnel %s (%d)", strerror(errno), errno);
-      }
+      WriteTunnel();
     }
   }
 }
