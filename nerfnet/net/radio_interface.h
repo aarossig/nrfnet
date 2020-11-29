@@ -17,12 +17,14 @@
 #ifndef NERFNET_NET_RADIO_INTERFACE_H_
 #define NERFNET_NET_RADIO_INTERFACE_H_
 
+#include <atomic>
 #include <deque>
+#include <mutex>
 #include <optional>
 #include <RF24/RF24.h>
 #include <thread>
+#include <vector>
 
-#include "nerfnet/net/net.pb.h"
 #include "nerfnet/util/non_copyable.h"
 
 namespace nerfnet {
@@ -56,9 +58,22 @@ class RadioInterface : public NonCopyable {
 
   // The maximum size of a packet.
   static constexpr size_t kMaxPacketSize = 32;
+  static constexpr size_t kMaxPayloadSize = kMaxPacketSize - 2;
 
   // The default pipe to use for sending data.
   static constexpr uint8_t kPipeId = 1;
+
+  // The mask for IDs.
+  static constexpr uint8_t kIDMask = 0x0f;
+
+  // A tunnel Tx/Rx request exchanged between systems.
+  struct TunnelTxRxPacket {
+    std::optional<uint8_t> id;
+    std::optional<uint8_t> ack_id;
+
+    uint8_t bytes_left = 0;
+    std::vector<uint8_t> payload;
+  };
 
   // The underlying radio.
   RF24 radio_;
@@ -80,7 +95,7 @@ class RadioInterface : public NonCopyable {
 
   // The frame buffer for the currently incoming frame. Written out to
   // the tunnel interface when completely received.
-  std::string frame_buffer_;
+  std::vector<uint8_t> frame_buffer_;
 
   // The next ID for packet ID generation.
   uint8_t next_id_;
@@ -89,11 +104,11 @@ class RadioInterface : public NonCopyable {
   std::optional<uint8_t> last_ack_id_;
 
   // Sends a message over the radio.
-  RequestResult Send(const google::protobuf::Message& request);
+  RequestResult Send(const std::vector<uint8_t>& request);
 
   // Reads a message from the radio.
-  RequestResult Receive(google::protobuf::Message& response,
-      uint64_t timeout_us = 0);
+  RequestResult Receive(std::vector<uint8_t>& response,
+                        uint64_t timeout_us = 0);
 
   // Returns the size of the read buffer.
   size_t GetReadBufferSize();
@@ -109,6 +124,12 @@ class RadioInterface : public NonCopyable {
 
   // Reads from the tunnel and buffers data read.
   void TunnelThread();
+
+  // Encode/decode functions for TunnelTxRxPackets.
+  bool DecodeTunnelTxRxPacket(const std::vector<uint8_t>& request,
+      TunnelTxRxPacket& tunnel);
+  bool EncodeTunnelTxRxPacket(const TunnelTxRxPacket& tunnel,
+      std::vector<uint8_t>& request);
 };
 
 }  // namespace nerfnet

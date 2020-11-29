@@ -59,38 +59,41 @@ void PrimaryRadioInterface::Run() {
 }
 
 bool PrimaryRadioInterface::ConnectionReset() {
-  Request request;
-  request.mutable_network_tunnel_reset();
+  std::vector<uint8_t> request(kMaxPacketSize, 0x00);
   auto result = Send(request);
   if (result != RequestResult::Success) {
     LOGE("Failed to send tunnel reset request");
     return false;
   }
 
-  Response response;
+  std::vector<uint8_t> response(kMaxPacketSize, 0x00);
   result = Receive(response, /*timeout_us=*/100000);
   if (result != RequestResult::Success) {
     LOGE("Failed to receive tunnel reset response");
     return false;
   }
 
-  return true;
+  return response[0] == 0x00;
 }
 
 void PrimaryRadioInterface::PerformTunnelTransfer() {
-  Request request;
-  auto* tunnel_request = request.mutable_network_tunnel_txrx();
-  tunnel_request->set_id(next_id_);
+  TunnelTxRxPacket tunnel;
+  tunnel.id = next_id_;
   if (last_ack_id_.has_value()) {
-    tunnel_request->set_ack_id(last_ack_id_.value());
+    tunnel.ack_id = last_ack_id_.value();
   }
 
+  tunnel.bytes_left = 0;
   if (!read_buffer_.empty()) {
     auto& frame = read_buffer_.front();
     size_t transfer_size = GetTransferSize(frame);
-    tunnel_request->set_payload(
-        {frame.begin(), frame.begin() + transfer_size});
-    tunnel_request->set_remaining_bytes(frame.size() - transfer_size);
+    tunnel.payload = {frame.begin(), frame.begin() + transfer_size};
+    tunnel.bytes_left = std::min(frame.size(), static_cast<size_t>(UINT8_MAX));
+  }
+
+  std::vector<uint8_t> request;
+  if (!EncodeTunnelTxRxPacket(tunnel, request)) {
+    return;
   }
 
   auto result = Send(request);
@@ -99,27 +102,25 @@ void PrimaryRadioInterface::PerformTunnelTransfer() {
     return;
   }
 
-  Response response;
+  std::vector<uint8_t> response(kMaxPacketSize);
   result = Receive(response, /*timeout_us=*/100000);
   if (result != RequestResult::Success) {
     LOGE("Failed to receive network tunnel txrx request");
     return;
   }
   
-  if (!response.has_network_tunnel_txrx()) {
-    LOGE("Missing network tunnel txrx");
+  if (!DecodeTunnelTxRxPacket(response, tunnel)) {
     return;
   }
   
-  const auto& tunnel_response = response.network_tunnel_txrx();
-  if (!tunnel_response.has_id() || !tunnel_response.has_ack_id()) {
+  if (!tunnel.id.has_value() || !tunnel.ack_id.has_value()) {
     LOGE("Missing tunnel fields");
     return;
   }
   
-  if (tunnel_response.ack_id() != next_id_) {
+  if (tunnel.ack_id.value() != next_id_) {
     LOGE("Secondary radio failed to ack, retransmitting: "
-         "ack_id=%u, next_id=%u", tunnel_response.ack_id(), next_id_);
+         "ack_id=%u, next_id=%u", tunnel.ack_id.value(), next_id_);
   } else {
     AdvanceID();
     if (!read_buffer_.empty()) {
@@ -131,11 +132,12 @@ void PrimaryRadioInterface::PerformTunnelTransfer() {
     }
   }
 
-  if (!ValidateID(tunnel_response.id())) {
+  if (!ValidateID(tunnel.id.value())) {
     LOGE("Received non-sequential packet");
-  } else if (tunnel_response.has_payload()) {
-    frame_buffer_ += tunnel_response.payload();
-    if (tunnel_response.remaining_bytes() == 0) {
+  } else if (!tunnel.payload.empty()) {
+    frame_buffer_.insert(frame_buffer_.end(),
+        tunnel.payload.begin(), tunnel.payload.end());
+    if (tunnel.bytes_left <= kMaxPayloadSize) {
       int bytes_written = write(tunnel_fd_,
           frame_buffer_.data(), frame_buffer_.size());
       LOGI("Writing %d bytes to the tunnel", frame_buffer_.size());

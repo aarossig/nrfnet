@@ -13,11 +13,7 @@ project(nerfnet)
 
 # Dependencies #################################################################
 
-include(FindProtobuf)
-
 find_package(PkgConfig REQUIRED)
-find_package(Protobuf REQUIRED)
-
 pkg_check_modules(tclap REQUIRED tclap)
 
 # Subdirectories ###############################################################

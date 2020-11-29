@@ -32,15 +32,15 @@ class SecondaryRadioInterface : public RadioInterface {
   void Run();
 
  protected:
-  // Handles a request from the primary radio.
-  void HandleRequest(const Request& request);
-
-  // Request handlers.
-  void HandleNetworkTunnelTxRx(const Request::NetworkTunnelTxRx& tunnel);
-  void HandleNetworkTunnelReset(const Request::NetworkTunnelReset& reset);
-
   // Set to true while a payload is in flight.
   bool payload_in_flight_;
+
+  // Handles a request from the primary radio.
+  void HandleRequest(const std::vector<uint8_t>& request);
+
+  // Request handlers.
+  void HandleNetworkTunnelReset();
+  void HandleNetworkTunnelTxRx(const std::vector<uint8_t>& request);
 };
 
 }  // namespace nerfnet

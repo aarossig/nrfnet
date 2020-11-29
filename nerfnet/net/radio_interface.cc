@@ -38,7 +38,7 @@ RadioInterface::RadioInterface(uint16_t ce_pin, int tunnel_fd,
   radio_.setAddressWidth(3);
   radio_.setAutoAck(1);
   radio_.setRetries(0, 15);
-  radio_.setCRCLength(RF24_CRC_16);
+  radio_.setCRCLength(RF24_CRC_8);
   CHECK(radio_.isChipConnected(), "NRF24L01 is unavailable");
 }
 
@@ -48,22 +48,16 @@ RadioInterface::~RadioInterface() {
 }
 
 RadioInterface::RequestResult RadioInterface::Send(
-    const google::protobuf::Message& request) {
+    const std::vector<uint8_t>& request) {
   radio_.stopListening();
 
-  std::string serialized_request;
-  CHECK(request.SerializeToString(&serialized_request),
-      "failed to encode message");
-  if (serialized_request.size() > (kMaxPacketSize - 1)) {
-    LOGE("serialized message is too large (%zu vs %zu)",
-        serialized_request.size(), (kMaxPacketSize - 1));
+  if (request.size() > kMaxPacketSize) {
+    LOGE("Request is too large (%zu vs %zu)", request.size(), kMaxPacketSize);
     radio_.startListening();
     return RequestResult::Malformed;
   }
 
-  serialized_request.insert(serialized_request.begin(),
-      static_cast<char>(serialized_request.size()));
-  if (!radio_.write(serialized_request.data(), serialized_request.size())) {
+  if (!radio_.write(request.data(), request.size())) {
     LOGE("Failed to write request");
     radio_.startListening();
     return RequestResult::TransmitError;
@@ -78,9 +72,8 @@ RadioInterface::RequestResult RadioInterface::Send(
 }
 
 RadioInterface::RequestResult RadioInterface::Receive(
-    google::protobuf::Message& response, uint64_t timeout_us) {
+    std::vector<uint8_t>& response, uint64_t timeout_us) {
   uint64_t start_us = TimeNowUs();
-
   while (!radio_.available()) {
     if (timeout_us != 0 && (start_us + timeout_us) < TimeNowUs()) {
       LOGE("Timeout receiving response");
@@ -88,21 +81,7 @@ RadioInterface::RequestResult RadioInterface::Receive(
     }
   }
 
-  std::string packet(kMaxPacketSize, '\0');
-  radio_.read(packet.data(), packet.size());
-
-  size_t size = packet[0];
-  if (size > (packet.size() - 1)) {
-    LOGE("Received message too large");
-    return RequestResult::Malformed;
-  }
-
-  packet = packet.substr(1, size);
-  if (!response.ParseFromString(packet)) {
-    LOGE("Received message failed to deserialize");
-    return RequestResult::Malformed;
-  }
-
+  radio_.read(response.data(), response.size());
   return RequestResult::Success;
 }
 
@@ -112,19 +91,19 @@ size_t RadioInterface::GetReadBufferSize() {
 }
 
 size_t RadioInterface::GetTransferSize(const std::vector<uint8_t>& frame) {
-  return std::min(frame.size(), static_cast<size_t>(20));
+  return std::min(frame.size(), static_cast<size_t>(kMaxPayloadSize));
 }
 
 void RadioInterface::AdvanceID() {
   next_id_++;
-  if (next_id_ > 0x7) {
+  if (next_id_ > kIDMask) {
     next_id_ = 1;
   }
 }
 
 bool RadioInterface::ValidateID(uint8_t id) {
   if (!last_ack_id_.has_value()
-      || (last_ack_id_.value() == 0x07 && id == 1)
+      || (last_ack_id_.value() == kIDMask && id == 1)
       || (id == (last_ack_id_.value() + 1))) {
     last_ack_id_ = id;
     return true;
@@ -156,6 +135,60 @@ void RadioInterface::TunnelThread() {
       SleepUs(1000);
     }
   }
+}
+
+bool RadioInterface::DecodeTunnelTxRxPacket(
+    const std::vector<uint8_t>& request, TunnelTxRxPacket& tunnel) {
+  if (request.size() != kMaxPacketSize) {
+    LOGE("Received short TxRx packet");
+    return false;
+  }
+
+  tunnel.id.reset();
+  uint8_t id_value = request[0] & kIDMask;
+  if (id_value != 0) {
+    tunnel.id = id_value;
+  }
+
+  tunnel.ack_id.reset();
+  uint8_t ack_id_value = (request[0] >> 4) & kIDMask;
+  if (ack_id_value != 0) {
+    tunnel.ack_id = ack_id_value;
+  }
+
+  tunnel.payload.clear();
+  uint8_t size_value = request[1];
+  tunnel.bytes_left = size_value;
+  if (size_value > 0) {
+    size_value = std::min(size_value, static_cast<uint8_t>(kMaxPayloadSize));
+    tunnel.payload = {request.begin() + 2, request.begin() + 2 + size_value};
+  }
+
+  return true;
+}
+
+bool RadioInterface::EncodeTunnelTxRxPacket(
+    const TunnelTxRxPacket& tunnel, std::vector<uint8_t>& request) {
+  request.resize(kMaxPacketSize, 0x00);
+  if (tunnel.id.has_value()) {
+    request[0] = tunnel.id.value();
+  }
+
+  if (tunnel.ack_id.has_value()) {
+    request[0] |= (tunnel.ack_id.value() << 4);
+  }
+
+   if (tunnel.payload.size() > kMaxPayloadSize) {
+    LOGE("TxRx packet payload is too large");
+    return false;
+  }
+
+  request[1] = tunnel.bytes_left;
+  for (size_t i = 0; i < tunnel.payload.size(); i++) {
+    request[2 + i] = tunnel.payload[i];
+  }
+
+  return true;
 }
 
 }  // namespace nerfnet
