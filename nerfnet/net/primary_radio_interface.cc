@@ -86,21 +86,23 @@ PrimaryRadioInterface::RequestResult PrimaryRadioInterface::Ping(
 void PrimaryRadioInterface::Run() {
   while (1) {
     SleepUs(100);
+
     std::lock_guard<std::mutex> lock(read_buffer_mutex_);
 
     Request request;
-    auto* tunnel = request.mutable_network_tunnel_txrx();
-    tunnel->set_id(next_id_);
+    auto* tunnel_request = request.mutable_network_tunnel_txrx();
+    tunnel_request->set_id(next_id_);
     if (last_ack_id_.has_value()) {
-      tunnel->set_ack_id(last_ack_id_.value());
+      tunnel_request->set_ack_id(last_ack_id_.value());
     }
 
     size_t transfer_size = 0;
     if (!read_buffer_.empty()) {
       auto& frame = read_buffer_.front();
-      transfer_size = std::min(frame.size(), static_cast<size_t>(20));
-      tunnel->set_payload({frame.begin(), frame.begin() + transfer_size});
-      tunnel->set_remaining_bytes(frame.size() - transfer_size);
+      transfer_size = std::min(frame.size(), static_cast<size_t>(8));
+      tunnel_request->set_payload(
+          {frame.begin(), frame.begin() + transfer_size});
+      tunnel_request->set_remaining_bytes(frame.size() - transfer_size);
     }
 
     auto result = Send(request);
@@ -115,7 +117,7 @@ void PrimaryRadioInterface::Run() {
       LOGE("Failed to receive network tunnel txrx request");
       continue;
     }
-
+    
     if (!response.has_network_tunnel_txrx()) {
       LOGE("Missing network tunnel txrx");
       continue;
@@ -125,40 +127,34 @@ void PrimaryRadioInterface::Run() {
     if (!tunnel_response.has_id() || !tunnel_response.has_ack_id()) {
       LOGE("Missing tunnel fields");
       continue;
-    } else if (tunnel_response.ack_id() != next_id_) {
-      LOGE("Secondary radio failed to ack, retransmitting");
-      continue;
     }
-
-    AdvanceID();
-    if (!read_buffer_.empty()) {
-      auto& frame = read_buffer_.front();
-      frame.erase(frame.begin(), frame.begin() + transfer_size);
-      if (frame.empty()) {
-        read_buffer_.pop_front();
+    
+    if (tunnel_response.ack_id() != next_id_) {
+      LOGE("Secondary radio failed to ack, retransmitting: "
+           "ack_id=%u, next_id=%u", tunnel_response.ack_id(), next_id_);
+    } else {
+      AdvanceID();
+      if (!read_buffer_.empty()) {
+        auto& frame = read_buffer_.front();
+        frame.erase(frame.begin(), frame.begin() + transfer_size);
+        if (frame.empty()) {
+          read_buffer_.pop_front();
+        }
       }
     }
 
-    if (last_ack_id_.has_value()
-        && tunnel_response.id() != (last_ack_id_.value() + 1)) {
+    if (!ValidateID(tunnel_response.id())) {
       LOGE("Received non-sequential packet");
-      continue;
-    } else {
-      last_ack_id_ = tunnel_response.id();
-    }
-
-    if (tunnel_response.has_payload()) {
+    } else if (tunnel_response.has_payload()) {
       frame_buffer_ += tunnel_response.payload();
       if (tunnel_response.remaining_bytes() == 0) {
         int bytes_written = write(tunnel_fd_,
             frame_buffer_.data(), frame_buffer_.size());
+        LOGI("Writing %d bytes to the tunnel", frame_buffer_.size());
+        frame_buffer_.clear();
         if (bytes_written < 0) {
           LOGE("Failed to write to tunnel %s (%d)", strerror(errno), errno);
-        } else {
-          LOGI("Wrote %d bytes from the tunnel", bytes_written);
         }
-
-        frame_buffer_.clear();
       }
     }
   }

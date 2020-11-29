@@ -28,7 +28,8 @@ SecondaryRadioInterface::SecondaryRadioInterface(
     uint16_t ce_pin, int tunnel_fd,
     uint32_t primary_addr, uint32_t secondary_addr, uint64_t rf_delay_us)
     : RadioInterface(ce_pin, tunnel_fd, primary_addr, secondary_addr,
-                     rf_delay_us) {
+                     rf_delay_us),
+      payload_in_flight_(false) {
   uint8_t writing_addr[5] = {
     static_cast<uint8_t>(secondary_addr),
     static_cast<uint8_t>(secondary_addr >> 8),
@@ -93,59 +94,63 @@ void SecondaryRadioInterface::HandlePing(const Request::Ping& ping) {
 void SecondaryRadioInterface::HandleNetworkTunnelTxRx(
     const Request::NetworkTunnelTxRx& tunnel) {
   std::lock_guard<std::mutex> lock(read_buffer_mutex_);
-  if (!tunnel.has_payload() || !tunnel.has_remaining_bytes()
-      || !tunnel.has_id()) {
+  if (!tunnel.has_id() || last_ack_id_.has_value() && !tunnel.has_ack_id()) {
     LOGE("Missing tunnel fields");
     return;
   }
 
-  if (last_ack_id_.has_value() && (tunnel.id() != last_ack_id_.value() + 1)) {
-    LOGE("Received non-sequential packet");
-    return;
+  if (!ValidateID(tunnel.id())) {
+    LOGE("Received non-sequential packet: %u vs %u",
+        last_ack_id_.value(), tunnel.id());
+  } else if (tunnel.has_payload()) {
+    frame_buffer_ += tunnel.payload();
+    if (tunnel.remaining_bytes() == 0) {
+      int bytes_written = write(tunnel_fd_,
+          frame_buffer_.data(), frame_buffer_.size());
+      LOGI("Writing %zu bytes to the tunnel", frame_buffer_.size());
+      frame_buffer_.clear();
+      if (bytes_written < 0) {
+        LOGE("Failed to write to tunnel %s (%d)", strerror(errno), errno);
+      }
+    }
   }
 
-  last_ack_id_ = tunnel.id();
-  AdvanceID();
-  if (!read_buffer_.empty()) {
-    auto& frame = read_buffer_.front();
-    size_t transfer_size = std::min(frame.size(), static_cast<size_t>(20));
-    frame.erase(frame.begin(), frame.begin() + transfer_size);
-    if (frame.empty()) {
-      read_buffer_.pop_front();
+  if (tunnel.has_ack_id()) {
+    if (tunnel.ack_id() != next_id_) {
+      LOGE("Primary radio failed to ack, retransmitting");
+    } else {
+      AdvanceID();
+      if (payload_in_flight_) {
+        if (!read_buffer_.empty()) {
+          auto& frame = read_buffer_.front();
+          size_t transfer_size = std::min(frame.size(), static_cast<size_t>(8));
+          frame.erase(frame.begin(), frame.begin() + transfer_size);
+          if (frame.empty()) {
+            read_buffer_.pop_front();
+          }
+        }
+
+        payload_in_flight_ = false;
+      }
     }
   }
 
   Response response;
   auto* tunnel_response = response.mutable_network_tunnel_txrx();
   tunnel_response->set_id(next_id_);
-  if (last_ack_id_.has_value()) {
-    tunnel_response->set_ack_id(last_ack_id_.value());
-  }
-
+  tunnel_response->set_ack_id(last_ack_id_.value());
   if (!read_buffer_.empty()) {
     auto& frame = read_buffer_.front();
-    size_t transfer_size = std::min(frame.size(), static_cast<size_t>(20));
-    tunnel_response->set_payload({frame.begin(),
-        frame.begin() + transfer_size});
+    size_t transfer_size = std::min(frame.size(), static_cast<size_t>(8));
+    tunnel_response->set_payload(
+        {frame.begin(), frame.begin() + transfer_size});
     tunnel_response->set_remaining_bytes(frame.size() - transfer_size);
+    payload_in_flight_ = true;
   }
 
   auto status = Send(response);
   if (status != RequestResult::Success) {
     LOGE("Failed to send network tunnel txrx response");
-  } else if (tunnel.has_payload()) {
-    frame_buffer_ += tunnel.payload();
-    if (tunnel.remaining_bytes() == 0) {
-      int bytes_written = write(tunnel_fd_,
-          frame_buffer_.data(), frame_buffer_.size());
-      if (bytes_written < 0) {
-        LOGE("Failed to write to tunnel %s (%d)", strerror(errno), errno);
-      } else {
-        LOGI("Wrote %d bytes from the tunnel", bytes_written);
-      }
-
-      frame_buffer_.clear();
-    }
   }
 }
 

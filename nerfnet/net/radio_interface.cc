@@ -40,7 +40,7 @@ RadioInterface::RadioInterface(uint16_t ce_pin, int tunnel_fd,
   radio_.setAddressWidth(3);
   radio_.setAutoAck(1);
   radio_.setRetries(0, 15);
-  radio_.setCRCLength(RF24_CRC_8);
+  radio_.setCRCLength(RF24_CRC_16);
   CHECK(radio_.isChipConnected(), "NRF24L01 is unavailable");
 }
 
@@ -120,6 +120,17 @@ void RadioInterface::AdvanceID() {
   }
 }
 
+bool RadioInterface::ValidateID(uint8_t id) {
+  if (!last_ack_id_.has_value()
+      || (last_ack_id_.value() == 0x07 && id == 1)
+      || (id == (last_ack_id_.value() + 1))) {
+    last_ack_id_ = id;
+    return true;
+  }
+
+  return false;
+}
+
 void RadioInterface::TunnelThread() {
   // The maximum number of network frames to buffer here.
   constexpr size_t kMaxBufferedFrames = 1024;
@@ -136,6 +147,7 @@ void RadioInterface::TunnelThread() {
     {
       std::lock_guard<std::mutex> lock(read_buffer_mutex_);
       read_buffer_.emplace_back(&buffer[0], &buffer[bytes_read]);
+      LOGI("Read %zu bytes from the tunnel", read_buffer_.back().size());
     }
 
     while (GetReadBufferSize() > kMaxBufferedFrames && running_) {

@@ -105,6 +105,9 @@ class RadioInterface : public NonCopyable {
   // Advances the packet ID counter.
   void AdvanceID();
 
+  // Returns true if the supplied ID is the next ID.
+  bool ValidateID(uint8_t id);
+
   // Reads from the tunnel and buffers data read.
   void TunnelThread();
 };
