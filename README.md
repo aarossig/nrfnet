@@ -116,7 +116,7 @@ otherwise.
 ## trivia
 
 This README was written using an SSH connection that was established over a
-nerfnet wireless link.
+`nerfnet` wireless link.
 
 This protocol is vulnerable to pretty much every attack known to exist. Here
 are the vulnerabilities that I can think of.
@@ -129,7 +129,7 @@ The nice thing about widespread odoption of TLS these days is that these
 vulnerabilities become less critical. Unencrypted traffic is vulnerable
 to eavesdropping and manipulation.
 
-It is also possible that if two users of nerfnet reside on the same channel
+It is also possible that if two users of `nerfnet` reside on the same channel
 that their packets will cause loads of errors for each other. It would be
 best to avoid that by selecting different channels.
 
