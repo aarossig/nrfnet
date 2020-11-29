@@ -14,13 +14,12 @@ This makes the design polled from the primary radio to the secondary radio.
 
 ## building
 
-This project uses the cmake build system. It also uses protobuf for the messages
-exchanged over the NRF24L01 radios. The following packages must be installed:
+This project uses the cmake build syste and tclap for command-line arguments.
+The following packages must be installed:
 
 ```
 sudo apt-get install git cmake build-essential \
-    libtclap-dev \
-    libprotobuf-dev protobuf-compiler
+    libtclap-dev
 ```
 
 Once the required packages are installed, the standard cmake workflow is used:
