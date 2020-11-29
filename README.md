@@ -14,7 +14,7 @@ This makes the design polled from the primary radio to the secondary radio.
 
 ## building
 
-This project uses the cmake build syste and tclap for command-line arguments.
+This project uses the cmake build system and tclap for command-line arguments.
 The following packages must be installed:
 
 ```
