@@ -38,6 +38,7 @@ class SecondaryRadioInterface : public RadioInterface {
   // Request handlers.
   void HandlePing(const Request::Ping& ping);
   void HandleNetworkTunnelTxRx(const Request::NetworkTunnelTxRx& tunnel);
+  void HandleNetworkTunnelReset(const Request::NetworkTunnelReset& reset);
 
   // Set to true while a payload is in flight.
   bool payload_in_flight_;

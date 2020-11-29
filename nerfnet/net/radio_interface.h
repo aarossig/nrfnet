@@ -98,6 +98,9 @@ class RadioInterface : public NonCopyable {
   // Returns the size of the read buffer.
   size_t GetReadBufferSize();
 
+  // Returns the size of the next payload to send.
+  size_t GetTransferSize(const std::vector<uint8_t>& frame);
+
   // Advances the packet ID counter.
   void AdvanceID();
 

@@ -111,6 +111,10 @@ size_t RadioInterface::GetReadBufferSize() {
   return read_buffer_.size();
 }
 
+size_t RadioInterface::GetTransferSize(const std::vector<uint8_t>& frame) {
+  return std::min(frame.size(), static_cast<size_t>(20));
+}
+
 void RadioInterface::AdvanceID() {
   next_id_++;
   if (next_id_ > 0x7) {
