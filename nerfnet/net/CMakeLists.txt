@@ -26,3 +26,25 @@ target_link_libraries(nerfnet PUBLIC
   rf24
   util
 )
+
+# nerfnet_v2 ###################################################################
+
+add_executable(nerfnet_v2
+  nerfnet_v2_main.cc
+  nrf_radio_interface.cc
+  radio_interface_v2.cc
+)
+
+target_include_directories(nerfnet_v2 PRIVATE
+  ${tclap_INCLUDE_DIRS}
+)
+
+target_include_directories(nerfnet_v2 PUBLIC
+  ${PROJECT_SOURCE_DIR}
+)
+
+target_link_libraries(nerfnet_v2 PUBLIC
+  pthread
+  rf24
+  util
+)
