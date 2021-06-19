@@ -33,7 +33,7 @@ int main(int argc, char** argv) {
   TCLAP::CmdLine cmd(kDescription, ' ', kVersion);
   TCLAP::ValueArg<uint32_t> address_arg("", "address",
       "The address of this station.", true, 0, "address", cmd);
-  TCLAP::ValueArg<uint8_t> channel_arg("", "channel",
+  TCLAP::ValueArg<uint16_t> channel_arg("", "channel",
       "The channel to use for transmit/receive.", false, 1, "channel", cmd);
   TCLAP::ValueArg<uint16_t> ce_pin_arg("", "ce_pin",
       "Set to the index of the NRF24L01 chip-enable pin.", false, 22, "index",
@@ -43,7 +43,7 @@ int main(int argc, char** argv) {
   NRFRadioInterface radio_interface(address_arg.getValue(),
       channel_arg.getValue(), ce_pin_arg.getValue());
 
-  constexpr uint64_t kBeaconIntervalUs = 500000;
+  constexpr uint64_t kBeaconIntervalUs = 200000;
   uint64_t last_beacon_time_us = 0;
   while (1) {
     uint64_t time_now_us = nerfnet::TimeNowUs();
@@ -69,8 +69,6 @@ int main(int argc, char** argv) {
         }
       }
     }
-
-    nerfnet::SleepUs(100000);
   }
 
   return 0;
