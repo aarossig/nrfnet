@@ -36,7 +36,7 @@ std::string StringFormat(const char* format, ...) {
 
   va_end(vl_copy);
   va_end(vl);
-  return output;
+  return output.substr(0, output.size() - 1);
 }
 
 }  // namespace nerfnet

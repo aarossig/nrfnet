@@ -65,7 +65,7 @@ int main(int argc, char** argv) {
         if (result == RadioInterfaceV2::ReceiveResult::SUCCESS) {
           std::string frame_contents_str;
           for (const auto& byte : frame.payload) {
-            frame_contents_str += nerfnet::StringFormat("%02x ", byte);
+            frame_contents_str += nerfnet::StringFormat("0x%02x ", byte);
           }
 
           LOGI("Received frame: address=%" PRIu32 ", size=%zu, contents='%s'",
