@@ -10,6 +10,7 @@ add_executable(nerfnet
   nerfnet_main.cc
   nrf_radio_interface.cc
   radio_interface.cc
+  radio_transport.cc
 )
 
 target_include_directories(nerfnet PRIVATE
