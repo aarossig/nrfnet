@@ -4,6 +4,35 @@
 TODO(aarossig): Update this readme with new mesh documentation.
 ```
 
+## build
+
+This project uses the cmake build system and has some dependencies.
+
+```
+sudo apt-get install git cmake build-essential \
+    libtclap-dev
+```
+
+The RF24 library must also be installed.
+
+```
+git clone https://github.com/nRF24/RF24.git
+cd RF24/
+make clean
+./configure --driver=SPIDEV; make -j4; sudo make install
+```
+
+Once these dependencies are satisifed, build using the standard cmake flow.
+
+```
+git clone git@github.com:aarossig/nerfnet.git
+cd nerfnet
+mkdir build
+cd build
+cmake ..
+make -j`nproc`
+```
+
 ## network design
 
 ```
