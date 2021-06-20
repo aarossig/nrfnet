@@ -18,6 +18,7 @@
 
 #include "nerfnet/net/nrf_radio_interface.h"
 #include "nerfnet/util/log.h"
+#include "nerfnet/util/string.h"
 #include "nerfnet/util/time.h"
 
 // A description of the program.
@@ -62,8 +63,13 @@ int main(int argc, char** argv) {
         nerfnet::SleepUs(10000);
       } else {
         if (result == RadioInterfaceV2::ReceiveResult::SUCCESS) {
-          LOGI("Received frame: address=%" PRIu32 ", size=%zu",
-              frame.address, frame.payload.size());
+          std::string frame_contents_str;
+          for (const auto& byte : frame.payload) {
+            frame_contents_str += nerfnet::StringFormat("%02x ", byte);
+          }
+
+          LOGI("Received frame: address=%" PRIu32 ", size=%zu, contents='%s'",
+              frame.address, frame.payload.size(), frame_contents_str.c_str());
         } else {
           LOGE("Receive failed: %d", result);
         }
