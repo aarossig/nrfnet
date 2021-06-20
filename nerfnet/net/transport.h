@@ -18,6 +18,7 @@
 #define NERFNET_NET_TRANSPORT_H_
 
 #include "nerfnet/net/link.h"
+#include "nerfnet/net/nerfnet.pb.h"
 #include "nerfnet/util/non_copyable.h"
 
 namespace nerfnet {
@@ -28,6 +29,22 @@ class Transport : public NonCopyable {
   // Setup a transport given a supplied link. The lifespan of the link must be
   // at least as long as this transport.
   Transport(Link* link);
+
+  // The possible results of a send operation.
+  enum class SendResult {
+    // The frame was sent successfully.
+    SUCCESS,
+
+    // The frame could not be sent because it is invalid.
+    INVALID_FRAME,
+  };
+
+  // Sends an arbitrary size data over the link.
+  virtual SendResult Send(const NetworkFrame& frame, uint32_t address,
+                          uint64_t timeout_us) = 0;
+
+  // Returns the link associated with this transport.
+  Link* link() const { return link_; }
 
  private:
   // The link to implement the transport over.
