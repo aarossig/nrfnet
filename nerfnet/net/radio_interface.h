@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Andrew Rossignol andrew.rossignol@gmail.com
+ * Copyright 2021 Andrew Rossignol andrew.rossignol@gmail.com
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,128 +17,75 @@
 #ifndef NERFNET_NET_RADIO_INTERFACE_H_
 #define NERFNET_NET_RADIO_INTERFACE_H_
 
-#include <atomic>
-#include <deque>
-#include <mutex>
-#include <optional>
-#include <RF24/RF24.h>
-#include <thread>
+#include <cstdint>
 #include <vector>
 
 #include "nerfnet/util/non_copyable.h"
 
 namespace nerfnet {
 
-// The interface to send/receive data using an RF24 radio.
+// The radio interface to send/receive packets over.
 class RadioInterface : public NonCopyable {
  public:
-  // Setup the radio interface.
-  RadioInterface(uint16_t ce_pin, int tunnel_fd,
-                 uint32_t primary_addr, uint32_t secondary_addr,
-                 uint8_t channel);
-  ~RadioInterface();
+  // Setup the radio interface with the address of this station.
+  RadioInterface(uint32_t address);
 
-  // The possible results of a request operation.
-  enum class RequestResult {
-    // The request was successful.
-    Success,
+  // The result of a transmit operation. Used for sending and beacon operations.
+  enum class TransmitResult {
+    // The transmission was successful.
+    SUCCESS,
 
-    // The request timed out.
-    Timeout,
+    // The supplied frame is too large to transmit on this radio.
+    TOO_LARGE,
 
-    // The request could not be sent because it was malformed.
-    Malformed,
-
-    // There was an error transmitting the request.
-    TransmitError,
+    // There was an error transmitting the frame.
+    TRANSMIT_ERROR,
   };
 
-  void SetTunnelLogsEnabled(bool enabled) { tunnel_logs_enabled_ = enabled; }
+  // Emit a beacon packet for this station.
+  virtual TransmitResult Beacon() = 0;
 
- protected:
-  // The number of microseconds to poll over.
-  static constexpr uint32_t kPollIntervalUs = 1000;
+  // The result of a receive operation. Used for receiving packets which may
+  // ether be data frames or beacon frames.
+  enum class ReceiveResult {
+    // A frame was received successfully.
+    SUCCESS,
 
-  // The maximum size of a packet.
-  static constexpr size_t kMaxPacketSize = 32;
-  static constexpr size_t kMaxPayloadSize = kMaxPacketSize - 2;
+    // There was no frame ready.
+    NOT_READY,
 
-  // The default pipe to use for sending data.
-  static constexpr uint8_t kPipeId = 1;
+    // There was an error receiving the frame.
+    RECEIVE_ERROR,
+  };
 
-  // The mask for IDs.
-  static constexpr uint8_t kIDMask = 0x0f;
+  // A frame to send/receive with the radio.
+  struct Frame {
+    // The address of the other station or this station depending on whether
+    // transmitting or receiving.
+    uint32_t address = 0;
 
-  // A tunnel Tx/Rx request exchanged between systems.
-  struct TunnelTxRxPacket {
-    std::optional<uint8_t> id;
-    std::optional<uint8_t> ack_id;
-
-    uint8_t bytes_left = 0;
+    // The payload of the frame. If this is empty, then the frame is a beacon
+    // frame that contains no content.
     std::vector<uint8_t> payload;
   };
 
-  // The underlying radio.
-  RF24 radio_;
+  // Receives a single frame from the radio, populating the address and payload
+  // contents if successful. Returns true if a frame was received.
+  virtual ReceiveResult Receive(Frame* frame) = 0;
 
-  // The file descriptor for the network tunnel.
-  const int tunnel_fd_;
+  // Transmits the supplied frame.
+  virtual TransmitResult Transmit(const Frame& frame) = 0;
 
-  // The addresses to use for this radio pair.
-  const uint32_t primary_addr_;
-  const uint32_t secondary_addr_;
+  // Returns the maximum size of payload for a given frame that can be
+  // transmitted.
+  virtual uint32_t GetMaxPayloadSize() const = 0;
 
-  // The thread to read from the tunnel interface on.
-  std::thread tunnel_thread_;
-  std::atomic<bool> running_;
+  // Returns the address of this node.
+  uint32_t address() const { return address_; }
 
-  // The buffer of data read and lock.
-  std::mutex read_buffer_mutex_;
-  std::deque<std::vector<uint8_t>> read_buffer_;
-
-  // The frame buffer for the currently incoming frame. Written out to
-  // the tunnel interface when completely received.
-  std::vector<uint8_t> frame_buffer_;
-
-  // The next ID for packet ID generation.
-  uint8_t next_id_;
-
-  // The last ID that needs to be acknowledged.
-  std::optional<uint8_t> last_ack_id_;
-
-  // Whether to log successful tunnel read/write operations.
-  bool tunnel_logs_enabled_;
-
-  // Sends a message over the radio.
-  RequestResult Send(const std::vector<uint8_t>& request);
-
-  // Reads a message from the radio.
-  RequestResult Receive(std::vector<uint8_t>& response,
-                        uint64_t timeout_us = 0);
-
-  // Returns the size of the read buffer.
-  size_t GetReadBufferSize();
-
-  // Returns the size of the next payload to send.
-  size_t GetTransferSize(const std::vector<uint8_t>& frame);
-
-  // Advances the packet ID counter.
-  void AdvanceID();
-
-  // Returns true if the supplied ID is the next ID.
-  bool ValidateID(uint8_t id);
-
-  // Reads from the tunnel and buffers data read.
-  void TunnelThread();
-
-  // Encode/decode functions for TunnelTxRxPackets.
-  bool DecodeTunnelTxRxPacket(const std::vector<uint8_t>& request,
-      TunnelTxRxPacket& tunnel);
-  bool EncodeTunnelTxRxPacket(const TunnelTxRxPacket& tunnel,
-      std::vector<uint8_t>& request);
-
-  // Writes the current frame buffer to the tunnel.
-  void WriteTunnel();
+ private:
+  // The address of this station.
+  uint32_t address_;
 };
 
 }  // namespace nerfnet

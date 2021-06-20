@@ -19,18 +19,18 @@
 
 #include <RF24/RF24.h>
 
-#include "nerfnet/net/radio_interface_v2.h"
+#include "nerfnet/net/radio_interface.h"
 
 namespace nerfnet {
 
 // An implementation of the RadioInterface that uses an NRF24L01 radio.
-class NRFRadioInterface : public RadioInterfaceV2 {
+class NRFRadioInterface : public RadioInterface {
  public:
   // Setup the radio interface with the address and configuration for the
   // NRF24L01 radio.
   NRFRadioInterface(uint32_t address, uint8_t channel, uint16_t ce_pin);
 
-  // RadioInterfaceV2 implementation.
+  // RadioInterface implementation.
   TransmitResult Beacon() final;
   ReceiveResult Receive(Frame* frame) final;
   TransmitResult Transmit(const Frame& frame) final;

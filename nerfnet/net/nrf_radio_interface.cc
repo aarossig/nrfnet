@@ -48,7 +48,7 @@ std::array<uint8_t, 5> FormatAddress(uint32_t address) {
 
 NRFRadioInterface::NRFRadioInterface(uint32_t address, uint8_t channel,
                                      uint16_t ce_pin)
-    : RadioInterfaceV2(address),
+    : RadioInterface(address),
       radio_(ce_pin, 0),
       state_(RadioState::UNKNOWN),
       last_transmit_address_(0) {
@@ -72,7 +72,7 @@ NRFRadioInterface::NRFRadioInterface(uint32_t address, uint8_t channel,
   radio_.openReadingPipe(kDirectedPipe, address_buffer.data());
 }
 
-RadioInterfaceV2::TransmitResult NRFRadioInterface::Beacon() {
+RadioInterface::TransmitResult NRFRadioInterface::Beacon() {
   RawFrame raw_frame = {};
   PopulateAddress(&raw_frame);
 
@@ -90,7 +90,7 @@ RadioInterfaceV2::TransmitResult NRFRadioInterface::Beacon() {
   return TransmitResult::SUCCESS;
 }
 
-RadioInterfaceV2::ReceiveResult NRFRadioInterface::Receive(Frame* frame) {
+RadioInterface::ReceiveResult NRFRadioInterface::Receive(Frame* frame) {
   StartReceiving();
   uint8_t pipe_id = UINT8_MAX;
   if (!radio_.available(&pipe_id)) {
@@ -117,7 +117,7 @@ RadioInterfaceV2::ReceiveResult NRFRadioInterface::Receive(Frame* frame) {
   return ReceiveResult::SUCCESS;
 }
 
-RadioInterfaceV2::TransmitResult NRFRadioInterface::Transmit(
+RadioInterface::TransmitResult NRFRadioInterface::Transmit(
     const Frame& frame) {
   if (frame.payload.size() > GetMaxPayloadSize()) {
     return TransmitResult::TOO_LARGE;
