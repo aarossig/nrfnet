@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef NERFNET_NET_RADIO_INTERFACE_H_
-#define NERFNET_NET_RADIO_INTERFACE_H_
+#ifndef NERFNET_NET_LINK_H_
+#define NERFNET_NET_LINK_H_
 
 #include <cstdint>
 #include <vector>
@@ -25,10 +25,10 @@
 namespace nerfnet {
 
 // The radio interface to send/receive packets over.
-class RadioInterface : public NonCopyable {
+class Link : public NonCopyable {
  public:
   // Setup the radio interface with the address of this station.
-  RadioInterface(uint32_t address);
+  Link(uint32_t address);
 
   // The result of a transmit operation. Used for sending and beacon operations.
   enum class TransmitResult {
@@ -90,4 +90,4 @@ class RadioInterface : public NonCopyable {
 
 }  // namespace nerfnet
 
-#endif  // NERFNET_NET_RADIO_INTERFACE_H_
+#endif  // NERFNET_NET_LINK_H_

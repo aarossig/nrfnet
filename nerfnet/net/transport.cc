@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include "nerfnet/net/radio_transport.h"
+#include "nerfnet/net/transport.h"
 
 namespace nerfnet {
 
-RadioTransport::RadioTransport(RadioInterface* radio_interface)
-    : radio_interface_(radio_interface) {}
+Transport::Transport(Link* link)
+    : link_(link) {}
 
 }  // namespace nerfnet

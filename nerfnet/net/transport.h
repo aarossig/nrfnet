@@ -14,11 +14,26 @@
  * limitations under the License.
  */
 
-#include "nerfnet/net/radio_interface.h"
+#ifndef NERFNET_NET_TRANSPORT_H_
+#define NERFNET_NET_TRANSPORT_H_
+
+#include "nerfnet/net/link.h"
+#include "nerfnet/util/non_copyable.h"
 
 namespace nerfnet {
 
-RadioInterface::RadioInterface(uint32_t address)
-    : address_(address) {}
+// A transport over an abstract Link that permits sending larger data frames.
+class Transport : public NonCopyable {
+ public:
+  // Setup a transport given a supplied link. The lifespan of the link must be
+  // at least as long as this transport.
+  Transport(Link* link);
+
+ private:
+  // The link to implement the transport over.
+  Link* const link_;
+};
 
 }  // namespace nerfnet
+
+#endif  // NERFNET_NET_TRANSPORT_H_

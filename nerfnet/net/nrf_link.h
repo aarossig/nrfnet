@@ -14,23 +14,22 @@
  * limitations under the License.
  */
 
-#ifndef NERFNET_NET_NRF_RADIO_INTERFACE_H_
-#define NERFNET_NET_NRF_RADIO_INTERFACE_H_
+#ifndef NERFNET_NET_NRF_LINK_H_
+#define NERFNET_NET_NRF_LINK_H_
 
 #include <RF24/RF24.h>
 
-#include "nerfnet/net/radio_interface.h"
+#include "nerfnet/net/link.h"
 
 namespace nerfnet {
 
-// An implementation of the RadioInterface that uses an NRF24L01 radio.
-class NRFRadioInterface : public RadioInterface {
+// A Link implementation that uses an NRF24L01 radio.
+class NRFLink : public Link {
  public:
-  // Setup the radio interface with the address and configuration for the
-  // NRF24L01 radio.
-  NRFRadioInterface(uint32_t address, uint8_t channel, uint16_t ce_pin);
+  // Setup the link with the address and configuration for the NRF24L01 radio.
+  NRFLink(uint32_t address, uint8_t channel, uint16_t ce_pin);
 
-  // RadioInterface implementation.
+  // Link implementation.
   TransmitResult Beacon() final;
   ReceiveResult Receive(Frame* frame) final;
   TransmitResult Transmit(const Frame& frame) final;
@@ -79,4 +78,4 @@ class NRFRadioInterface : public RadioInterface {
 
 }  // namespace nerfnet
 
-#endif  // NERFNET_NET_NRF_RADIO_INTERFACE_H_
+#endif  // NERFNET_NET_NRF_LINK_H_

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "nerfnet/net/nrf_radio_interface.h"
+#include "nerfnet/net/nrf_link.h"
 
 #include <array>
 
@@ -46,9 +46,8 @@ std::array<uint8_t, 5> FormatAddress(uint32_t address) {
 
 }  // anonymous namespace
 
-NRFRadioInterface::NRFRadioInterface(uint32_t address, uint8_t channel,
-                                     uint16_t ce_pin)
-    : RadioInterface(address),
+NRFLink::NRFLink(uint32_t address, uint8_t channel, uint16_t ce_pin)
+    : Link(address),
       radio_(ce_pin, 0),
       state_(RadioState::UNKNOWN),
       last_transmit_address_(0) {
@@ -72,7 +71,7 @@ NRFRadioInterface::NRFRadioInterface(uint32_t address, uint8_t channel,
   radio_.openReadingPipe(kDirectedPipe, address_buffer.data());
 }
 
-RadioInterface::TransmitResult NRFRadioInterface::Beacon() {
+Link::TransmitResult NRFLink::Beacon() {
   RawFrame raw_frame = {};
   PopulateAddress(&raw_frame);
 
@@ -90,7 +89,7 @@ RadioInterface::TransmitResult NRFRadioInterface::Beacon() {
   return TransmitResult::SUCCESS;
 }
 
-RadioInterface::ReceiveResult NRFRadioInterface::Receive(Frame* frame) {
+Link::ReceiveResult NRFLink::Receive(Frame* frame) {
   StartReceiving();
   uint8_t pipe_id = UINT8_MAX;
   if (!radio_.available(&pipe_id)) {
@@ -117,8 +116,7 @@ RadioInterface::ReceiveResult NRFRadioInterface::Receive(Frame* frame) {
   return ReceiveResult::SUCCESS;
 }
 
-RadioInterface::TransmitResult NRFRadioInterface::Transmit(
-    const Frame& frame) {
+Link::TransmitResult NRFLink::Transmit(const Frame& frame) {
   if (frame.payload.size() > GetMaxPayloadSize()) {
     return TransmitResult::TOO_LARGE;
   }
@@ -143,25 +141,25 @@ RadioInterface::TransmitResult NRFRadioInterface::Transmit(
   return TransmitResult::SUCCESS;
 }
 
-uint32_t NRFRadioInterface::GetMaxPayloadSize() const {
+uint32_t NRFLink::GetMaxPayloadSize() const {
   return kRawFrameSize - sizeof(uint32_t);
 }
 
-void NRFRadioInterface::PopulateAddress(RawFrame* raw_frame) {
+void NRFLink::PopulateAddress(RawFrame* raw_frame) {
   raw_frame->at(0) = static_cast<uint8_t>(address());
   raw_frame->at(1) = static_cast<uint8_t>(address() >> 8);
   raw_frame->at(2) = static_cast<uint8_t>(address() >> 16);
   raw_frame->at(3) = static_cast<uint8_t>(address() >> 24);
 }
 
-void NRFRadioInterface::StartReceiving() {
+void NRFLink::StartReceiving() {
   if (state_ != RadioState::RECEIVING) {
     radio_.startListening();
     state_ = RadioState::RECEIVING;
   }
 }
 
-void NRFRadioInterface::StartTransmitting(uint32_t address) {
+void NRFLink::StartTransmitting(uint32_t address) {
   bool open_writing_pipe = address != last_transmit_address_;
   if (state_ != RadioState::TRANSMITTING) {
     radio_.stopListening();

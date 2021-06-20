@@ -7,10 +7,10 @@
 # nerfnet ######################################################################
 
 add_executable(nerfnet
+  link.cc
   nerfnet_main.cc
-  nrf_radio_interface.cc
-  radio_interface.cc
-  radio_transport.cc
+  nrf_link.cc
+  transport.cc
 )
 
 target_include_directories(nerfnet PRIVATE
