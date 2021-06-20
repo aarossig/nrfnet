@@ -59,7 +59,7 @@ int main(int argc, char** argv) {
       RadioInterfaceV2::Frame frame;
       RadioInterfaceV2::ReceiveResult result = radio_interface.Receive(&frame);
       if (result == RadioInterfaceV2::ReceiveResult::NOT_READY) {
-        nerfnet::SleepUs(100000);
+        nerfnet::SleepUs(10000);
       } else {
         if (result == RadioInterfaceV2::ReceiveResult::SUCCESS) {
           LOGI("Received frame: address=%" PRIu32 ", size=%zu",
