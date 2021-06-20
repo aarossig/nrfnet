@@ -117,6 +117,36 @@ RadioInterfaceV2::ReceiveResult NRFRadioInterface::Receive(Frame* frame) {
   return ReceiveResult::SUCCESS;
 }
 
+RadioInterfaceV2::TransmitResult NRFRadioInterface::Transmit(
+    const Frame& frame) {
+  if (frame.payload.size() > GetMaxPayloadSize()) {
+    return TransmitResult::TOO_LARGE;
+  }
+
+  RawFrame raw_frame = {};
+  PopulateAddress(&raw_frame);
+  for (size_t i = 0; i < frame.payload.size(); i++) {
+    raw_frame[i + 4] = frame.payload[i];
+  }
+
+  StartTransmitting(frame.address);
+  if (!radio_.write(raw_frame.data(), raw_frame.size())) {
+    LOGE("Failed to write beacon");
+    return TransmitResult::TRANSMIT_ERROR;
+  }
+
+  // TODO(aarossig): Handle this potential infinite loop condition.
+  while (!radio_.txStandBy()) {
+    LOGI("Waiting for beacon transmit standby");
+  }
+
+  return TransmitResult::SUCCESS;
+}
+
+uint32_t NRFRadioInterface::GetMaxPayloadSize() const {
+  return kRawFrameSize - sizeof(uint32_t);
+}
+
 void NRFRadioInterface::PopulateAddress(RawFrame* raw_frame) {
   raw_frame->at(0) = static_cast<uint8_t>(address());
   raw_frame->at(1) = static_cast<uint8_t>(address() >> 8);

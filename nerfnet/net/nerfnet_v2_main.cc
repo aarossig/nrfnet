@@ -45,7 +45,9 @@ int main(int argc, char** argv) {
       channel_arg.getValue(), ce_pin_arg.getValue());
 
   constexpr uint64_t kBeaconIntervalUs = 200000;
+  constexpr uint64_t kDataIntervalUs = 1000000;
   uint64_t last_beacon_time_us = 0;
+  uint64_t last_data_time_us = 0;
   while (1) {
     uint64_t time_now_us = nerfnet::TimeNowUs();
     if ((time_now_us - last_beacon_time_us) > kBeaconIntervalUs) {
@@ -56,6 +58,17 @@ int main(int argc, char** argv) {
       }
 
       last_beacon_time_us = time_now_us;
+    } else if ((time_now_us - last_data_time_us) > kDataIntervalUs) {
+      LOGI("data");
+      RadioInterfaceV2::Frame frame;
+      frame.address = 2000;
+      frame.payload = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
+      RadioInterfaceV2::TransmitResult result = radio_interface.Transmit(frame);
+      if (result != RadioInterfaceV2::TransmitResult::SUCCESS) {
+        LOGE("Transmit failed: %d", result);
+      }
+
+      last_data_time_us = time_now_us;
     } else {
       RadioInterfaceV2::Frame frame;
       RadioInterfaceV2::ReceiveResult result = radio_interface.Receive(&frame);

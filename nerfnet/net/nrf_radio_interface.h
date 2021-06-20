@@ -33,6 +33,8 @@ class NRFRadioInterface : public RadioInterfaceV2 {
   // RadioInterfaceV2 implementation.
   TransmitResult Beacon() final;
   ReceiveResult Receive(Frame* frame) final;
+  TransmitResult Transmit(const Frame& frame) final;
+  uint32_t GetMaxPayloadSize() const final;
 
  private:
   // The size of the frame to transmit with the NRF24L01 radio. The protocol

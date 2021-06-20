@@ -35,6 +35,9 @@ class RadioInterfaceV2 : public NonCopyable {
     // The transmission was successful.
     SUCCESS,
 
+    // The supplied frame is too large to transmit on this radio.
+    TOO_LARGE,
+
     // There was an error transmitting the frame.
     TRANSMIT_ERROR,
   };
@@ -57,7 +60,8 @@ class RadioInterfaceV2 : public NonCopyable {
 
   // A frame to send/receive with the radio.
   struct Frame {
-    // The address of the other station.
+    // The address of the other station or this station depending on whether
+    // transmitting or receiving.
     uint32_t address = 0;
 
     // The payload of the frame. If this is empty, then the frame is a beacon
@@ -68,6 +72,13 @@ class RadioInterfaceV2 : public NonCopyable {
   // Receives a single frame from the radio, populating the address and payload
   // contents if successful. Returns true if a frame was received.
   virtual ReceiveResult Receive(Frame* frame) = 0;
+
+  // Transmits the supplied frame.
+  virtual TransmitResult Transmit(const Frame& frame) = 0;
+
+  // Returns the maximum size of payload for a given frame that can be
+  // transmitted.
+  virtual uint32_t GetMaxPayloadSize() const = 0;
 
   // Returns the address of this node.
   uint32_t address() const { return address_; }
