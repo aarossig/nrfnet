@@ -61,14 +61,18 @@ class NRFRadioInterface : public RadioInterfaceV2 {
   // The state of the radio.
   RadioState state_;
 
+  // The last address that was transmitted to.
+  uint32_t last_transmit_address_;
+
   // Fills in the address field of a raw frame.
   void PopulateAddress(RawFrame* raw_frame);
 
   // Puts the radio into receiving mode.
   void StartReceiving();
 
-  // Puts the radio into transmitting mode.
-  void StartTransmitting();
+  // Puts the radio into transmitting mode and opens a writing pipe for the
+  // given address.
+  void StartTransmitting(uint32_t addresss);
 };
 
 }  // namespace nerfnet

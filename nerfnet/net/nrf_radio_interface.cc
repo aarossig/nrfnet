@@ -50,7 +50,8 @@ NRFRadioInterface::NRFRadioInterface(uint32_t address, uint8_t channel,
                                      uint16_t ce_pin)
     : RadioInterfaceV2(address),
       radio_(ce_pin, 0),
-      state_(RadioState::UNKNOWN) {
+      state_(RadioState::UNKNOWN),
+      last_transmit_address_(0) {
   // Configure the radio and ensure that it is available.
   CHECK(address != 0, "Address cannot be 0");
   CHECK(address != kBroadcastAddress, "Cannot use the broadcast address");
@@ -75,10 +76,7 @@ RadioInterfaceV2::TransmitResult NRFRadioInterface::Beacon() {
   RawFrame raw_frame = {};
   PopulateAddress(&raw_frame);
 
-  std::array<uint8_t, 5> address_buffer = FormatAddress(kBroadcastAddress);
-  radio_.openWritingPipe(address_buffer.data());
-
-  StartTransmitting();
+  StartTransmitting(kBroadcastAddress);
   if (!radio_.write(raw_frame.data(), raw_frame.size())) {
     LOGE("Failed to write beacon");
     return TransmitResult::TRANSMIT_ERROR;
@@ -133,10 +131,17 @@ void NRFRadioInterface::StartReceiving() {
   }
 }
 
-void NRFRadioInterface::StartTransmitting() {
+void NRFRadioInterface::StartTransmitting(uint32_t address) {
+  bool open_writing_pipe = address != last_transmit_address_;
   if (state_ != RadioState::TRANSMITTING) {
     radio_.stopListening();
     state_ = RadioState::TRANSMITTING;
+    open_writing_pipe = true;
+  }
+
+  if (open_writing_pipe) {
+    std::array<uint8_t, 5> address_buffer = FormatAddress(address);
+    radio_.openWritingPipe(address_buffer.data());
   }
 }
 
