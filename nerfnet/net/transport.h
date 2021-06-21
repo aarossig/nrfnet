@@ -41,6 +41,9 @@ class Transport : public NonCopyable {
   // at least as long as this transport.
   Transport(Link* link, EventHandler* event_handler);
 
+  // Provide a virtual destructor for subclasses.
+  virtual ~Transport() = default;
+
   // The possible results of a send operation.
   enum class SendResult {
     // The frame was sent successfully.

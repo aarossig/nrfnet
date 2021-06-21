@@ -17,11 +17,19 @@
 #include "nerfnet/net/radio_transport.h"
 
 #include "nerfnet/util/log.h"
+#include "nerfnet/util/time.h"
 
 namespace nerfnet {
 
 RadioTransport::RadioTransport(Link* link, EventHandler* event_handler)
-    : Transport(link, event_handler) {}
+    : Transport(link, event_handler),
+      transport_thread_running_(true),
+      transport_thread_(&RadioTransport::TransportThread, this) {}
+
+RadioTransport::~RadioTransport() {
+  transport_thread_running_ = false;
+  transport_thread_.join();
+}
 
 Transport::SendResult RadioTransport::Send(const NetworkFrame& frame,
     uint32_t address, uint64_t timeout_us) {
@@ -34,6 +42,13 @@ Transport::SendResult RadioTransport::Send(const NetworkFrame& frame,
   // TODO(aarossig): Fragment and send.
 
   return SendResult::SUCCESS;
+}
+
+void RadioTransport::TransportThread() {
+  while (transport_thread_running_) {
+    LOGI("TODO: poll");
+    SleepUs(200000);
+  }
 }
 
 }  // namespace nerfnet

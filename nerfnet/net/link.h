@@ -30,6 +30,9 @@ class Link : public NonCopyable {
   // Setup the radio interface with the address of this station.
   Link(uint32_t address);
 
+  // Provide a virtual destructor for subclasses.
+  virtual ~Link() = default;
+
   // The result of a transmit operation. Used for sending and beacon operations.
   enum class TransmitResult {
     // The transmission was successful.

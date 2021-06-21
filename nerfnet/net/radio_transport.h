@@ -17,6 +17,8 @@
 #ifndef NERFNET_NET_RADIO_TRANSPORT_H_
 #define NERFNET_NET_RADIO_TRANSPORT_H_
 
+#include <thread>
+
 #include "nerfnet/net/link.h"
 #include "nerfnet/net/transport.h"
 
@@ -29,9 +31,21 @@ class RadioTransport : public Transport {
   // Setup the transport with the link to use.
   RadioTransport(Link* link, EventHandler* event_handler);
 
+  // Stop the radio transport.
+  virtual ~RadioTransport();
+
   // Transport implementation.
   SendResult Send(const NetworkFrame& frame, uint32_t address,
                   uint64_t timeout_us) final;
+
+ private:
+  // The thread to use for sending/receiving frames.
+  std::atomic<bool> transport_thread_running_;
+  std::thread transport_thread_;
+
+  // The thread to send/receive frames on. This allows continuously monitoring
+  // for incoming packets and beacons to dispatch to the event handler.
+  void TransportThread();
 };
 
 }  // namespace nerfnet
