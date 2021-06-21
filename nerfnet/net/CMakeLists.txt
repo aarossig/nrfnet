@@ -10,21 +10,15 @@ add_executable(nerfnet
   link.cc
   nerfnet_main.cc
   nrf_link.cc
-  radio_transport.cc
-  transport.cc
 )
 
 target_include_directories(nerfnet PRIVATE
   ${tclap_INCLUDE_DIRS}
 )
 
-target_include_directories(nerfnet PUBLIC
-  ${PROJECT_SOURCE_DIR}
-)
-
 target_link_libraries(nerfnet PUBLIC
-  nerfnet_proto
   pthread
+  radio_transport
   rf24
   util
 )
@@ -44,3 +38,36 @@ add_library(nerfnet_proto
 target_include_directories(nerfnet_proto PUBLIC ${PROJECT_BINARY_DIR})
 target_include_directories(nerfnet_proto PUBLIC ${Protobuf_INCLUDE_DIRS})
 target_link_libraries(nerfnet_proto ${Protobuf_LIBRARIES})
+
+# transport ####################################################################
+
+add_library(transport
+  transport.cc
+)
+
+target_link_libraries(transport
+  nerfnet_proto
+)
+
+# radio transport ##############################################################
+
+add_library(radio_transport
+  radio_transport.cc
+)
+
+target_link_libraries(radio_transport PUBLIC
+  transport
+  util
+)
+
+add_executable(radio_transport_test
+  radio_transport_test.cc
+)
+
+target_link_libraries(radio_transport_test PUBLIC
+  gtest_main
+  gtest
+  radio_transport
+)
+
+gtest_discover_tests(radio_transport_test)

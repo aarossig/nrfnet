@@ -10,7 +10,7 @@ This project uses the cmake build system and has some dependencies.
 
 ```
 sudo apt-get install git cmake build-essential \
-    libtclap-dev
+    libtclap-dev libgtest-dev
 ```
 
 The RF24 library must also be installed.
