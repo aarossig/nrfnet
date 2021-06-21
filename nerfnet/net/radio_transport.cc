@@ -20,8 +20,8 @@
 
 namespace nerfnet {
 
-RadioTransport::RadioTransport(Link* link)
-    : Transport(link) {}
+RadioTransport::RadioTransport(Link* link, EventHandler* event_handler)
+    : Transport(link, event_handler) {}
 
 Transport::SendResult RadioTransport::Send(const NetworkFrame& frame,
     uint32_t address, uint64_t timeout_us) {
@@ -30,9 +30,6 @@ Transport::SendResult RadioTransport::Send(const NetworkFrame& frame,
     LOGE("Failed to serialize frame");
     return SendResult::INVALID_FRAME;
   }
-
-  std::vector<uint8_t> start_frame(GetMaxPayloadSize());
-  
 
   // TODO(aarossig): Fragment and send.
 

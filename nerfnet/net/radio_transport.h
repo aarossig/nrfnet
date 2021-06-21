@@ -27,7 +27,7 @@ namespace nerfnet {
 class RadioTransport : public Transport {
  public:
   // Setup the transport with the link to use.
-  RadioTransport(Link* link);
+  RadioTransport(Link* link, EventHandler* event_handler);
 
   // Transport implementation.
   SendResult Send(const NetworkFrame& frame, uint32_t address,

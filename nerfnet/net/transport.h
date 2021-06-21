@@ -26,9 +26,20 @@ namespace nerfnet {
 // A transport over an abstract Link that permits sending larger data frames.
 class Transport : public NonCopyable {
  public:
+  // The event handler for this transport.
+  class EventHandler {
+   public:
+    virtual ~EventHandler() = default;
+
+    // Called when a beacon is received. Beacons may be received at any time.
+    // This method is called on an internal thread so appropriate locks must be
+    // held.
+    virtual void OnBeaconReceived(uint32_t address) = 0;
+  };
+
   // Setup a transport given a supplied link. The lifespan of the link must be
   // at least as long as this transport.
-  Transport(Link* link);
+  Transport(Link* link, EventHandler* event_handler);
 
   // The possible results of a send operation.
   enum class SendResult {
@@ -46,9 +57,15 @@ class Transport : public NonCopyable {
   // Returns the link associated with this transport.
   Link* link() const { return link_; }
 
+  // Returns the event handler associated with this transport.
+  EventHandler* event_handler() const { return event_handler_; }
+
  private:
   // The link to implement the transport over.
   Link* const link_;
+
+  // The event handler for this transport.
+  EventHandler* const event_handler_;
 };
 
 }  // namespace nerfnet

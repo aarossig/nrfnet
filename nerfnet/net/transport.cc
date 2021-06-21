@@ -18,7 +18,8 @@
 
 namespace nerfnet {
 
-Transport::Transport(Link* link)
-    : link_(link) {}
+Transport::Transport(Link* link, EventHandler* event_handler)
+    : link_(link),
+      event_handler_(event_handler) {}
 
 }  // namespace nerfnet
