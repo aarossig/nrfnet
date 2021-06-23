@@ -17,6 +17,7 @@
 #include <gtest/gtest.h>
 
 #include "nerfnet/util/file.h"
+#include "nerfnet/util/file_test.pb.h"
 
 namespace nerfnet {
 namespace {
@@ -30,6 +31,14 @@ TEST(File, ValidFile) {
   std::string file_contents;
   EXPECT_TRUE(ReadFileToString("nerfnet/util/testdata/file.txt", &file_contents));
   EXPECT_EQ(file_contents, "file\n");
+}
+
+TEST(File, TextProtoFile) {
+  FileTest file_test;
+  EXPECT_TRUE(ReadTextProtoFileToMessage("nerfnet/util/testdata/file.textproto",
+        &file_test));
+  EXPECT_TRUE(file_test.has_greeting());
+  EXPECT_EQ(file_test.greeting(), "Hello, World!");
 }
 
 }  // anonymous namespace

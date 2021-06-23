@@ -14,23 +14,12 @@
  * limitations under the License.
  */
 
-#ifndef NERFNET_UTIL_FILE_H_
-#define NERFNET_UTIL_FILE_H_
+syntax = "proto2";
 
-#include <google/protobuf/message.h>
-#include <string>
+package nerfnet;
 
-namespace nerfnet {
-
-// Read the contents of the supplied file into a string.
-// Returns true if successful, false otherwise.
-bool ReadFileToString(const std::string& filename, std::string* contents);
-
-// Reads the contents of the supplied file into a protobuf message.
-// Returns true if successful, false otherwise.
-bool ReadTextProtoFileToMessage(const std::string& filename,
-    google::protobuf::Message* message);
-
-}  // namespace nerfnet
-
-#endif  // NERFNET_UTIL_FILE_H_
+// A test proto message.
+message FileTest {
+  // A test proto field containing a greeting.
+  optional string greeting = 1;
+};

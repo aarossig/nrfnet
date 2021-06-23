@@ -17,6 +17,9 @@
 #include "nerfnet/util/file.h"
 
 #include <fstream>
+#include <google/protobuf/text_format.h>
+
+#include "nerfnet/util/log.h"
 
 namespace nerfnet {
 
@@ -31,6 +34,22 @@ bool ReadFileToString(const std::string& filename, std::string* contents) {
   in.seekg(0, std::ios::beg);
   contents->assign((std::istreambuf_iterator<char>(in)),
                    std::istreambuf_iterator<char>());
+  return true;
+}
+
+bool ReadTextProtoFileToMessage(const std::string& filename,
+    google::protobuf::Message* message) {
+  std::string file_contents;
+  if (!ReadFileToString(filename, &file_contents)) {
+    LOGE("Failed to read text proto: '%s'", filename.c_str());
+    return false;
+  }
+
+  if (!google::protobuf::TextFormat::ParseFromString(file_contents, message)) {
+    LOGE("Failed to parse text proto: '%s'", filename.c_str());
+    return false;
+  }
+
   return true;
 }
 

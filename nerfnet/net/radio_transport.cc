@@ -57,14 +57,24 @@ Transport::SendResult RadioTransport::Send(const NetworkFrame& frame,
 void RadioTransport::TransportThread() {
   while (transport_thread_running_) {
     uint64_t time_now_us = nerfnet::TimeNowUs();
+    uint64_t delay_us = UINT64_MAX;
     if ((time_now_us - last_beacon_time_us_) > config_.beacon_interval_us()) {
-      Link::TransmitResult result = link()->Beacon();
-      if (result != Link::TransmitResult::SUCCESS) {
-        LOGE("Beacon failed: %d", result);
-      }
-
+      Beacon();
       last_beacon_time_us_ = time_now_us;
+    } else {
+      delay_us = std::min(delay_us, time_now_us - last_beacon_time_us_);
     }
+
+    if (delay_us != UINT64_MAX) {
+      SleepUs(delay_us);
+    }
+  }
+}
+
+void RadioTransport::Beacon() {
+  Link::TransmitResult result = link()->Beacon();
+  if (result != Link::TransmitResult::SUCCESS) {
+    LOGE("Beacon failed: %d", result);
   }
 }
 

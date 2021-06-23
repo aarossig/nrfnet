@@ -63,6 +63,9 @@ class RadioTransport : public Transport {
   // The thread to send/receive frames on. This allows continuously monitoring
   // for incoming packets and beacons to dispatch to the event handler.
   void TransportThread();
+
+  // Emits a beacon via the link.
+  void Beacon();
 };
 
 }  // namespace nerfnet
