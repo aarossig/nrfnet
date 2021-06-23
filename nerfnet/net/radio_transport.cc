@@ -21,8 +21,10 @@
 
 namespace nerfnet {
 
-RadioTransport::RadioTransport(Link* link, EventHandler* event_handler)
+RadioTransport::RadioTransport(const RadioTransportConfig& config,
+    Link* link, EventHandler* event_handler)
     : Transport(link, event_handler),
+      config_(config),
       transport_thread_running_(true),
       transport_thread_(&RadioTransport::TransportThread, this),
       send_frame_(nullptr) {}

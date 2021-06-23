@@ -28,7 +28,7 @@ class RadioTransportTest : public ::testing::Test,
  protected:
   RadioTransportTest()
       : link_(/*address=*/1000, /*max_payload_size=*/32),
-        transport_(&link_, this) {}
+        transport_(RadioTransportConfig(), &link_, this) {}
 
   // Transport::EventHandler implementation.
   void OnBeaconReceived(uint32_t address) final {

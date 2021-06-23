@@ -21,6 +21,7 @@
 #include <thread>
 
 #include "nerfnet/net/link.h"
+#include "nerfnet/net/radio_transport.pb.h"
 #include "nerfnet/net/transport.h"
 
 namespace nerfnet {
@@ -30,7 +31,8 @@ namespace nerfnet {
 class RadioTransport : public Transport {
  public:
   // Setup the transport with the link to use.
-  RadioTransport(Link* link, EventHandler* event_handler);
+  RadioTransport(const RadioTransportConfig& config,
+      Link* link, EventHandler* event_handler);
 
   // Stop the radio transport.
   virtual ~RadioTransport();
@@ -40,6 +42,9 @@ class RadioTransport : public Transport {
                   uint64_t timeout_us) final;
 
  private:
+  // The config to use for this transport.
+  const RadioTransportConfig config_;
+
   // The thread to use for sending/receiving frames.
   std::atomic<bool> transport_thread_running_;
   std::thread transport_thread_;
