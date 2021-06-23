@@ -24,7 +24,8 @@ namespace nerfnet {
 RadioTransport::RadioTransport(Link* link, EventHandler* event_handler)
     : Transport(link, event_handler),
       transport_thread_running_(true),
-      transport_thread_(&RadioTransport::TransportThread, this) {}
+      transport_thread_(&RadioTransport::TransportThread, this),
+      send_frame_(nullptr) {}
 
 RadioTransport::~RadioTransport() {
   transport_thread_running_ = false;
@@ -33,15 +34,21 @@ RadioTransport::~RadioTransport() {
 
 Transport::SendResult RadioTransport::Send(const NetworkFrame& frame,
     uint32_t address, uint64_t timeout_us) {
+  // Serialize the frame.
   std::string serialized_frame;
   if (!frame.SerializeToString(&serialized_frame)) {
     LOGE("Failed to serialize frame");
     return SendResult::INVALID_FRAME;
   }
 
-  // TODO(aarossig): Fragment and send.
-
-  return SendResult::SUCCESS;
+  // Signal the transport thread that there is a frame to send and wait up to
+  // the specified timeout for that to complete.
+  std::unique_lock<std::mutex> lock(mutex_);
+  send_frame_ = &serialized_frame;
+  bool result = cv_.wait_for(lock, std::chrono::microseconds(timeout_us),
+      [this]() { return send_frame_ == nullptr; });
+  send_frame_ = nullptr;
+  return result ? SendResult::SUCCESS : SendResult::TIMEOUT;
 }
 
 void RadioTransport::TransportThread() {

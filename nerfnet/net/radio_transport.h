@@ -17,6 +17,7 @@
 #ifndef NERFNET_NET_RADIO_TRANSPORT_H_
 #define NERFNET_NET_RADIO_TRANSPORT_H_
 
+#include <condition_variable>
 #include <thread>
 
 #include "nerfnet/net/link.h"
@@ -42,6 +43,14 @@ class RadioTransport : public Transport {
   // The thread to use for sending/receiving frames.
   std::atomic<bool> transport_thread_running_;
   std::thread transport_thread_;
+
+  // Synchronization.
+  std::mutex mutex_;
+  std::condition_variable cv_;
+
+  // A pointer to the frame to be sent, nullptr if there is currently no pending
+  // frame. This is populated by the Send() method.
+  std::string* send_frame_;
 
   // The thread to send/receive frames on. This allows continuously monitoring
   // for incoming packets and beacons to dispatch to the event handler.

@@ -14,34 +14,30 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
+#ifndef NERFNET_NET_MOCK_LINK_H_
+#define NERFNET_NET_MOCK_LINK_H_
 
-#include "nerfnet/net/mock_link.h"
-#include "nerfnet/net/radio_transport.h"
+#include "nerfnet/net/link.h"
 
 namespace nerfnet {
-namespace {
 
-// A test fixture for the RadioTransport.
-class RadioTransportTest : public ::testing::Test,
-                           public Transport::EventHandler {
- protected:
-  RadioTransportTest()
-      : link_(/*address=*/1000, /*max_payload_size=*/32),
-        transport_(&link_, this) {}
+// A mock link implementation used for unit testing.
+class MockLink : public Link {
+ public:
+  // Configure the MockLink with the address of this node.
+  MockLink(uint32_t address, uint32_t max_payload_size);
 
-  // Transport::EventHandler implementation.
-  void OnBeaconReceived(uint32_t address) final {
+  // Link implementation.
+  TransmitResult Beacon() final;
+  ReceiveResult Receive(Frame* frame) final;
+  TransmitResult Transmit(const Frame& frame) final;
+  uint32_t GetMaxPayloadSize() const final;
 
-  }
-
-  // The transport instance to test and underlying mock link.
-  MockLink link_;
-  RadioTransport transport_;
+ private:
+  // The configured maximum payload size.
+  const uint32_t max_payload_size_;
 };
 
-TEST(RadioTransportTest, Foo) {
-}
-
-}  // anonymous namespace
 }  // namespace nerfnet
+
+#endif  // NERFNET_NET_MOCK_LINK_H_

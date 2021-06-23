@@ -51,6 +51,9 @@ class Transport : public NonCopyable {
 
     // The frame could not be sent because it is invalid.
     INVALID_FRAME,
+
+    // The frame transmission deadline was exceeded.
+    TIMEOUT,
   };
 
   // Sends an arbitrary size data over the link.

@@ -14,34 +14,32 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-
 #include "nerfnet/net/mock_link.h"
-#include "nerfnet/net/radio_transport.h"
 
 namespace nerfnet {
-namespace {
 
-// A test fixture for the RadioTransport.
-class RadioTransportTest : public ::testing::Test,
-                           public Transport::EventHandler {
- protected:
-  RadioTransportTest()
-      : link_(/*address=*/1000, /*max_payload_size=*/32),
-        transport_(&link_, this) {}
+MockLink::MockLink(uint32_t address, uint32_t max_payload_size)
+    : Link(address),
+      max_payload_size_(max_payload_size) {}
 
-  // Transport::EventHandler implementation.
-  void OnBeaconReceived(uint32_t address) final {
-
-  }
-
-  // The transport instance to test and underlying mock link.
-  MockLink link_;
-  RadioTransport transport_;
-};
-
-TEST(RadioTransportTest, Foo) {
+Link::TransmitResult MockLink::Beacon() {
+  // TODO(aarossig): Provide a mocking mechanism.
+  return TransmitResult::SUCCESS;
 }
 
-}  // anonymous namespace
+Link::ReceiveResult MockLink::Receive(Frame* frame) {
+  // TODO(aarossig): Provide a mocking mechanism.
+  return ReceiveResult::SUCCESS;
+}
+
+Link::TransmitResult MockLink::Transmit(const Frame& frame) {
+  // TODO(aarossig): Provide a mocking mechanism.
+  return TransmitResult::SUCCESS;
+}
+
+uint32_t MockLink::GetMaxPayloadSize() const {
+  return max_payload_size_;
+}
+
+
 }  // namespace nerfnet

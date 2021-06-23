@@ -41,8 +41,23 @@ message HelloResponse {
  */
 
 message NetworkFrame {
+  // All request messages.
+  message Request {
+    oneof request {
+      HelloRequest hello = 1;
+    };
+  };
+
+  // All response messages.
+  message Response {
+    oneof response {
+      HelloResponse hello = 1;
+    };
+  };
+
+  // A union of request/response to fit into a simple network frame.
   oneof payload {
-    HelloRequest hello_request = 10;
-    HelloResponse hello_response = 11;
+    Request request = 1;
+    Response response = 2;
   };
 };
