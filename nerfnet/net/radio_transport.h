@@ -49,6 +49,9 @@ class RadioTransport : public Transport {
   std::atomic<bool> transport_thread_running_;
   std::thread transport_thread_;
 
+  // The last time that a beacon was transmitted in microseconds.
+  uint64_t last_beacon_time_us_;
+
   // Synchronization.
   std::mutex mutex_;
   std::condition_variable cv_;

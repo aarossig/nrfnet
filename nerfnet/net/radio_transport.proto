@@ -20,4 +20,6 @@ package nerfnet;
 
 // The config for a radio transport instance.
 message RadioTransportConfig {
+  // The interval between beacon transmissions in microseconds.
+  optional uint64 beacon_interval_us = 1;
 };

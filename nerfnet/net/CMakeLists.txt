@@ -62,6 +62,7 @@ add_library(radio_transport
 )
 
 target_link_libraries(radio_transport PUBLIC
+  radio_transport_proto
   transport
   util
 )

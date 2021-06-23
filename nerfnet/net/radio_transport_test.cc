@@ -31,9 +31,7 @@ class RadioTransportTest : public ::testing::Test,
         transport_(RadioTransportConfig(), &link_, this) {}
 
   // Transport::EventHandler implementation.
-  void OnBeaconReceived(uint32_t address) final {
-
-  }
+  void OnBeaconReceived(uint32_t address) final {}
 
   // The transport instance to test and underlying mock link.
   MockLink link_;
