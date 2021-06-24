@@ -16,15 +16,45 @@
 
 #include "nerfnet/net/mock_link.h"
 
+#include <gtest/gtest.h>
+
+#include "nerfnet/util/log.h"
+#include "nerfnet/util/time.h"
+
 namespace nerfnet {
 
-MockLink::MockLink(uint32_t address, uint32_t max_payload_size)
+MockLink::MockLink(uint32_t address, uint32_t max_payload_size,
+    const std::vector<TestOperation>& operations)
     : Link(address),
-      max_payload_size_(max_payload_size) {}
+      max_payload_size_(max_payload_size),
+      operations_(operations),
+      start_time_us_(TimeNowUs()),
+      next_operation_index_(0) {
+  CHECK(!operations_.empty(), "MockLink operations must be non-empty");
+}
+
+void MockLink::WaitForComplete() {
+  while (true) {
+    std::unique_lock<std::mutex> lock(mutex_);
+    if (next_operation_index_ >= operations_.size()) {
+      break;
+    }
+
+    cv_.wait(lock);
+  }
+}
 
 Link::TransmitResult MockLink::Beacon() {
-  // TODO(aarossig): Provide a mocking mechanism.
-  return TransmitResult::SUCCESS;
+  uint64_t relative_time_us = RelativeTimeUs();
+
+  std::unique_lock<std::mutex> lock(mutex_);
+  CHECK(next_operation_index_ < operations_.size(),
+      "next_operation_index_ out of bounds");
+  const TestOperation& operation = operations_[next_operation_index_++];
+  EXPECT_GE(relative_time_us, operation.expected_time_us);
+  EXPECT_LT(relative_time_us, operation.expected_time_us + 1000);
+  cv_.notify_one();
+  return operation.beacon.result;
 }
 
 Link::ReceiveResult MockLink::Receive(Frame* frame) {
@@ -41,5 +71,8 @@ uint32_t MockLink::GetMaxPayloadSize() const {
   return max_payload_size_;
 }
 
+uint64_t MockLink::RelativeTimeUs() const {
+  return TimeNowUs() - start_time_us_;
+}
 
 }  // namespace nerfnet

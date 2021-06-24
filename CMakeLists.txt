@@ -29,6 +29,10 @@ message(${GTEST_INCLUDE_DIRS})
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${PROJECT_SOURCE_DIR})
 
+# Compile Flags ################################################################
+
+add_compile_options(-Wno-psabi)
+
 # Subdirectories ###############################################################
 
 add_subdirectory(nerfnet)

@@ -22,13 +22,26 @@
 namespace nerfnet {
 namespace {
 
+RadioTransportConfig GetDefaultRadioTransportConfig() {
+  RadioTransportConfig config;
+  config.set_beacon_interval_us(10000);
+  return config;
+}
+
 // A test fixture for the RadioTransport.
 class RadioTransportTest : public ::testing::Test,
                            public Transport::EventHandler {
  protected:
   RadioTransportTest()
-      : link_(/*address=*/1000, /*max_payload_size=*/32),
-        transport_(RadioTransportConfig(), &link_, this) {}
+      : link_(/*address=*/1000, /*max_payload_size=*/32, {
+          { MockLink::TestOperation::Operation::BEACON, 0,
+                Link::TransmitResult::SUCCESS }, 
+          { MockLink::TestOperation::Operation::BEACON, 10000,
+                Link::TransmitResult::SUCCESS }, 
+          { MockLink::TestOperation::Operation::BEACON, 20000,
+                Link::TransmitResult::SUCCESS }, 
+        }),
+        transport_(GetDefaultRadioTransportConfig(), &link_, this) {}
 
   // Transport::EventHandler implementation.
   void OnBeaconReceived(uint32_t address) final {}
@@ -38,7 +51,8 @@ class RadioTransportTest : public ::testing::Test,
   RadioTransport transport_;
 };
 
-TEST(RadioTransportTest, Foo) {
+TEST_F(RadioTransportTest, Beacon) {
+  link_.WaitForComplete();
 }
 
 }  // anonymous namespace

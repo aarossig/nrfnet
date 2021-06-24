@@ -28,7 +28,10 @@ RadioTransport::RadioTransport(const RadioTransportConfig& config,
       transport_thread_running_(true),
       transport_thread_(&RadioTransport::TransportThread, this),
       last_beacon_time_us_(0),
-      send_frame_(nullptr) {}
+      send_frame_(nullptr) {
+  CHECK(config_.has_beacon_interval_us(),
+      "beacon_interval_us must be configured");
+}
 
 RadioTransport::~RadioTransport() {
   transport_thread_running_ = false;
@@ -62,7 +65,11 @@ void RadioTransport::TransportThread() {
       Beacon();
       last_beacon_time_us_ = time_now_us;
     } else {
-      delay_us = std::min(delay_us, time_now_us - last_beacon_time_us_);
+      uint64_t next_beacon_us = last_beacon_time_us_
+          + config_.beacon_interval_us();
+      if (next_beacon_us > time_now_us) {
+        delay_us = next_beacon_us - time_now_us;
+      }
     }
 
     if (delay_us != UINT64_MAX) {
