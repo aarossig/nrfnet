@@ -72,7 +72,7 @@ void RadioTransport::TransportThread() {
       }
     }
 
-    if (delay_us != UINT64_MAX) {
+    if (transport_thread_running_ && delay_us != UINT64_MAX) {
       SleepUs(delay_us);
     }
   }
@@ -82,6 +82,7 @@ void RadioTransport::Beacon() {
   Link::TransmitResult result = link()->Beacon();
   if (result != Link::TransmitResult::SUCCESS) {
     LOGE("Beacon failed: %d", result);
+    event_handler()->OnBeaconFailed(result);
   }
 }
 

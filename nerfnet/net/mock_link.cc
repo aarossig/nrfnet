@@ -38,9 +38,17 @@ void MockLink::WaitForComplete() {
     std::unique_lock<std::mutex> lock(mutex_);
     if (next_operation_index_ >= operations_.size()) {
       break;
+    } else if (operations_[next_operation_index_].operation
+        == TestOperation::Operation::DELAY) {
+      auto& operation = operations_[next_operation_index_++];
+      uint64_t relative_time_us = TimeNowUs() - start_time_us_;
+      if (operation.expected_time_us > relative_time_us) {
+        LOGE("waiting");
+        SleepUs(operation.expected_time_us - relative_time_us);
+      }
+    } else {
+      cv_.wait(lock);
     }
-
-    cv_.wait(lock);
   }
 }
 
@@ -52,7 +60,7 @@ Link::TransmitResult MockLink::Beacon() {
       "next_operation_index_ out of bounds");
   const TestOperation& operation = operations_[next_operation_index_++];
   EXPECT_GE(relative_time_us, operation.expected_time_us);
-  EXPECT_LT(relative_time_us, operation.expected_time_us + 1000);
+  EXPECT_LT(relative_time_us, operation.expected_time_us + 10000);
   cv_.notify_one();
   return operation.beacon.result;
 }

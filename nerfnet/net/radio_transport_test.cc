@@ -19,12 +19,14 @@
 #include "nerfnet/net/mock_link.h"
 #include "nerfnet/net/radio_transport.h"
 
+#include "nerfnet/util/log.h"
+
 namespace nerfnet {
 namespace {
 
-RadioTransportConfig GetDefaultRadioTransportConfig() {
+RadioTransportConfig GetTestRadioTransportConfig() {
   RadioTransportConfig config;
-  config.set_beacon_interval_us(10000);
+  config.set_beacon_interval_us(100000);
   return config;
 }
 
@@ -34,25 +36,43 @@ class RadioTransportTest : public ::testing::Test,
  protected:
   RadioTransportTest()
       : link_(/*address=*/1000, /*max_payload_size=*/32, {
-          { MockLink::TestOperation::Operation::BEACON, 0,
-                Link::TransmitResult::SUCCESS }, 
-          { MockLink::TestOperation::Operation::BEACON, 10000,
-                Link::TransmitResult::SUCCESS }, 
-          { MockLink::TestOperation::Operation::BEACON, 20000,
-                Link::TransmitResult::SUCCESS }, 
+          MockLink::TestOperation::Beacon(0,
+              Link::TransmitResult::SUCCESS),
+          MockLink::TestOperation::Beacon(100000,
+              Link::TransmitResult::SUCCESS),
+          MockLink::TestOperation::Beacon(200000,
+              Link::TransmitResult::SUCCESS),
+          MockLink::TestOperation::Beacon(300000,
+              Link::TransmitResult::TRANSMIT_ERROR),
+          MockLink::TestOperation::Delay(350000),
         }),
-        transport_(GetDefaultRadioTransportConfig(), &link_, this) {}
+        transport_(GetTestRadioTransportConfig(), &link_, this),
+        beacon_failed_count_(0) {}
 
   // Transport::EventHandler implementation.
+  void OnBeaconFailed(Link::TransmitResult status) final {
+    LOGE("foo");
+    std::unique_lock<std::mutex> lock(mutex_);
+    beacon_failed_count_++;
+  }
   void OnBeaconReceived(uint32_t address) final {}
+
+  // Synchronization.
+  std::mutex mutex_;
 
   // The transport instance to test and underlying mock link.
   MockLink link_;
   RadioTransport transport_;
+
+  // A counter of the number of beacon failures.
+  int beacon_failed_count_;
 };
 
 TEST_F(RadioTransportTest, Beacon) {
   link_.WaitForComplete();
+  LOGE("bar");
+  std::unique_lock<std::mutex> lock(mutex_);
+  EXPECT_EQ(beacon_failed_count_, 1);
 }
 
 }  // anonymous namespace

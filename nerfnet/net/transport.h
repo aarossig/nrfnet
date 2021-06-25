@@ -31,6 +31,10 @@ class Transport : public NonCopyable {
    public:
     virtual ~EventHandler() = default;
 
+    // Called when a beacon transmission fails. This provides the implementation
+    // with the status of the transmission that triggered the failure.
+    virtual void OnBeaconFailed(Link::TransmitResult status) = 0;
+
     // Called when a beacon is received. Beacons may be received at any time.
     // This method is called on an internal thread so appropriate locks must be
     // held.

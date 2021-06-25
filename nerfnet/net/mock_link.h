@@ -28,8 +28,25 @@ namespace nerfnet {
 class MockLink : public Link {
  public:
   struct TestOperation {
+    static TestOperation Beacon(uint64_t expected_time_us,
+        TransmitResult result) {
+      TestOperation operation;
+      operation.operation = Operation::BEACON;
+      operation.expected_time_us = expected_time_us;
+      operation.beacon.result = result;
+      return operation;
+    }
+
+    static TestOperation Delay(uint64_t expected_time_us) {
+      TestOperation operation;
+      operation.operation = Operation::DELAY;
+      operation.expected_time_us = expected_time_us;
+      return operation;
+    }
+
     enum class Operation {
       BEACON,
+      DELAY,
     };
 
     Operation operation;
