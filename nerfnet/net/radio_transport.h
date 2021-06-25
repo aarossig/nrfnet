@@ -64,8 +64,9 @@ class RadioTransport : public Transport {
   // for incoming packets and beacons to dispatch to the event handler.
   void TransportThread();
 
-  // Emits a beacon via the link.
-  void Beacon();
+  // Emits a beacon via the link if it is time to do so. Returns the amount of
+  // time to delay before the next beacon.
+  uint64_t Beacon(uint64_t time_now_us);
 };
 
 }  // namespace nerfnet

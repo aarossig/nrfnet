@@ -51,7 +51,6 @@ class RadioTransportTest : public ::testing::Test,
 
   // Transport::EventHandler implementation.
   void OnBeaconFailed(Link::TransmitResult status) final {
-    LOGE("foo");
     std::unique_lock<std::mutex> lock(mutex_);
     beacon_failed_count_++;
   }
@@ -70,7 +69,6 @@ class RadioTransportTest : public ::testing::Test,
 
 TEST_F(RadioTransportTest, Beacon) {
   link_.WaitForComplete();
-  LOGE("bar");
   std::unique_lock<std::mutex> lock(mutex_);
   EXPECT_EQ(beacon_failed_count_, 1);
 }

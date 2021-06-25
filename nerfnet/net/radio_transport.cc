@@ -60,30 +60,25 @@ Transport::SendResult RadioTransport::Send(const NetworkFrame& frame,
 void RadioTransport::TransportThread() {
   while (transport_thread_running_) {
     uint64_t time_now_us = nerfnet::TimeNowUs();
-    uint64_t delay_us = UINT64_MAX;
-    if ((time_now_us - last_beacon_time_us_) > config_.beacon_interval_us()) {
-      Beacon();
-      last_beacon_time_us_ = time_now_us;
-    } else {
-      uint64_t next_beacon_us = last_beacon_time_us_
-          + config_.beacon_interval_us();
-      if (next_beacon_us > time_now_us) {
-        delay_us = next_beacon_us - time_now_us;
-      }
-    }
-
+    uint64_t delay_us = Beacon(time_now_us);
     if (transport_thread_running_ && delay_us != UINT64_MAX) {
       SleepUs(delay_us);
     }
   }
 }
 
-void RadioTransport::Beacon() {
-  Link::TransmitResult result = link()->Beacon();
-  if (result != Link::TransmitResult::SUCCESS) {
-    LOGE("Beacon failed: %d", result);
-    event_handler()->OnBeaconFailed(result);
+uint64_t RadioTransport::Beacon(uint64_t time_now_us) {
+  if ((time_now_us - last_beacon_time_us_) > config_.beacon_interval_us()) {
+    Link::TransmitResult result = link()->Beacon();
+    if (result != Link::TransmitResult::SUCCESS) {
+      event_handler()->OnBeaconFailed(result);
+    }
+
+    last_beacon_time_us_ = time_now_us;
   }
+
+  uint64_t next_beacon_us = last_beacon_time_us_ + config_.beacon_interval_us();
+  return next_beacon_us - time_now_us;
 }
 
 }  // namespace nerfnet

@@ -43,7 +43,6 @@ void MockLink::WaitForComplete() {
       auto& operation = operations_[next_operation_index_++];
       uint64_t relative_time_us = TimeNowUs() - start_time_us_;
       if (operation.expected_time_us > relative_time_us) {
-        LOGE("waiting");
         SleepUs(operation.expected_time_us - relative_time_us);
       }
     } else {
