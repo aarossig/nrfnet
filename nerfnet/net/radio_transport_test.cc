@@ -24,11 +24,9 @@
 namespace nerfnet {
 namespace {
 
-RadioTransportConfig GetTestRadioTransportConfig() {
-  RadioTransportConfig config;
-  config.set_beacon_interval_us(100000);
-  return config;
-}
+const RadioTransport::Config kTestRadioTransportConfig = {
+  /*beacon_interval_us=*/100000,  // 100ms.
+};
 
 // A test fixture for the RadioTransport.
 class RadioTransportTest : public ::testing::Test,
@@ -46,7 +44,7 @@ class RadioTransportTest : public ::testing::Test,
               Link::TransmitResult::TRANSMIT_ERROR),
           MockLink::TestOperation::Delay(350000),
         }),
-        transport_(GetTestRadioTransportConfig(), &link_, this),
+        transport_(&link_, this, kTestRadioTransportConfig),
         beacon_failed_count_(0) {}
 
   // Transport::EventHandler implementation.

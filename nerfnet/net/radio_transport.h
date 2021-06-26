@@ -21,7 +21,6 @@
 #include <thread>
 
 #include "nerfnet/net/link.h"
-#include "nerfnet/net/radio_transport.pb.h"
 #include "nerfnet/net/transport.h"
 
 namespace nerfnet {
@@ -30,9 +29,18 @@ namespace nerfnet {
 // transport breaks packets into smaller pieces to be transmitted with a radio.
 class RadioTransport : public Transport {
  public:
+  // The configuration to use for this radio transport.
+  struct Config {
+    // The interval between beacons in microseconds.
+    uint64_t beacon_interval_us;
+  };
+
+  // The default config to use for the radio transport.
+  static const Config kDefaultConfig;
+
   // Setup the transport with the link to use.
-  RadioTransport(const RadioTransportConfig& config,
-      Link* link, EventHandler* event_handler);
+  RadioTransport(Link* link, EventHandler* event_handler,
+      const Config& config = kDefaultConfig);
 
   // Stop the radio transport.
   virtual ~RadioTransport();
@@ -43,7 +51,7 @@ class RadioTransport : public Transport {
 
  private:
   // The config to use for this transport.
-  const RadioTransportConfig config_;
+  const Config config_;
 
   // The current mode of the transport.
   enum class Mode {

@@ -21,8 +21,12 @@
 
 namespace nerfnet {
 
-RadioTransport::RadioTransport(const RadioTransportConfig& config,
-    Link* link, EventHandler* event_handler)
+const RadioTransport::Config RadioTransport::kDefaultConfig = {
+  /*beacon_interval_us=*/100000,  // 100ms.
+};
+
+RadioTransport::RadioTransport(Link* link, EventHandler* event_handler,
+    const Config& config)
     : Transport(link, event_handler),
       config_(config),
       mode_(Mode::IDLE),
@@ -30,10 +34,7 @@ RadioTransport::RadioTransport(const RadioTransportConfig& config,
       send_frame_(nullptr),
       transport_running_(true),
       beacon_thread_(&RadioTransport::BeaconThread, this),
-      transport_thread_(&RadioTransport::TransportThread, this) {
-  CHECK(config_.has_beacon_interval_us(),
-      "beacon_interval_us must be configured");
-}
+      transport_thread_(&RadioTransport::TransportThread, this) {}
 
 RadioTransport::~RadioTransport() {
   transport_running_ = false;
@@ -66,7 +67,7 @@ Transport::SendResult RadioTransport::Send(const NetworkFrame& frame,
 void RadioTransport::BeaconThread() {
   while(transport_running_) {
     uint64_t time_now_us = TimeNowUs();
-    if ((time_now_us - last_beacon_time_us_) > config_.beacon_interval_us()) {
+    if ((time_now_us - last_beacon_time_us_) > config_.beacon_interval_us) {
       std::unique_lock<std::mutex> lock(link_mutex_);
       Link::TransmitResult result = link()->Beacon();
       if (result != Link::TransmitResult::SUCCESS) {
@@ -77,7 +78,7 @@ void RadioTransport::BeaconThread() {
     }
   
     uint64_t next_beacon_time_us = last_beacon_time_us_
-        + config_.beacon_interval_us();
+        + config_.beacon_interval_us;
     if (next_beacon_time_us > time_now_us) {
       SleepUs(next_beacon_time_us - time_now_us);
     }

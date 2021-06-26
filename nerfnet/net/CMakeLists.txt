@@ -78,24 +78,9 @@ add_library(radio_transport
 )
 
 target_link_libraries(radio_transport PUBLIC
-  radio_transport_proto
   transport
   util
 )
-
-PROTOBUF_GENERATE_CPP(radio_transport_proto_hdrs
-  radio_transport_proto_srcs
-  radio_transport.proto
-)
-
-add_library(radio_transport_proto
-  ${radio_transport_proto_hdrs}
-  ${radio_transport_proto_srcs}
-)
-
-target_include_directories(radio_transport_proto PUBLIC ${PROJECT_BINARY_DIR})
-target_include_directories(radio_transport_proto PUBLIC ${Protobuf_INCLUDE_DIRS})
-target_link_libraries(radio_transport_proto ${Protobuf_LIBRARIES})
 
 add_executable(radio_transport_test
   radio_transport_test.cc
