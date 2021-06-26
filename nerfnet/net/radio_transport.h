@@ -45,28 +45,57 @@ class RadioTransport : public Transport {
   // The config to use for this transport.
   const RadioTransportConfig config_;
 
-  // The thread to use for sending/receiving frames.
-  std::atomic<bool> transport_thread_running_;
-  std::thread transport_thread_;
+  // The current mode of the transport.
+  enum class Mode {
+    // The transport is idle and currently awaiting reception of a message or
+    // for a message to be queued to be transmitted.
+    IDLE,
+
+    // The transport is currently receiving a frame from another radio.
+    RECEIVING,
+
+    // The transport is currently transmitting a frame to another radio.
+    SENDING,
+  };
+
+  // The current mode of the radio.
+  Mode mode_;
 
   // The last time that a beacon was transmitted in microseconds.
   uint64_t last_beacon_time_us_;
 
-  // Synchronization.
+  // Synchronization for sending/receiving frames.
   std::mutex mutex_;
   std::condition_variable cv_;
+
+  // The mutex used to guard access to the link.
+  std::mutex link_mutex_;
 
   // A pointer to the frame to be sent, nullptr if there is currently no pending
   // frame. This is populated by the Send() method.
   std::string* send_frame_;
+  uint32_t send_address_;
+  size_t send_frame_offset_;
+
+  // The thread to use for sending beacons.
+  std::atomic<bool> transport_running_;
+  std::thread beacon_thread_;
+
+  // The thread to use for sending/receiving frames.
+  std::thread transport_thread_;
+
+  // The thread to emit beacons on.
+  void BeaconThread();
 
   // The thread to send/receive frames on. This allows continuously monitoring
   // for incoming packets and beacons to dispatch to the event handler.
   void TransportThread();
 
-  // Emits a beacon via the link if it is time to do so. Returns the amount of
-  // time to delay before the next beacon.
-  uint64_t Beacon(uint64_t time_now_us);
+  // Sends a radio packet to another radio.
+  uint64_t Send(uint64_t time_now_us);
+
+  // Receive a radio packet from another radio.
+  uint64_t Receive(uint64_t time_now_us);
 };
 
 }  // namespace nerfnet
