@@ -23,50 +23,40 @@
 
 namespace nerfnet {
 
-MockLink::MockLink(uint32_t address, uint32_t max_payload_size,
-    const std::vector<TestOperation>& operations)
+MockLink::MockLink(const Config& config, uint32_t address)
     : Link(address),
-      max_payload_size_(max_payload_size),
-      operations_(operations),
+      config_(config),
       start_time_us_(TimeNowUs()),
-      next_operation_index_(0) {
-  CHECK(!operations_.empty(), "MockLink operations must be non-empty");
-}
+      beacon_count_(0),
+      receive_count_(0) {}
 
 void MockLink::WaitForComplete() {
-  while (true) {
-    std::unique_lock<std::mutex> lock(mutex_);
-    if (next_operation_index_ >= operations_.size()) {
-      break;
-    } else if (operations_[next_operation_index_].operation
-        == TestOperation::Operation::DELAY) {
-      auto& operation = operations_[next_operation_index_++];
-      uint64_t relative_time_us = TimeNowUs() - start_time_us_;
-      if (operation.expected_time_us > relative_time_us) {
-        SleepUs(operation.expected_time_us - relative_time_us);
-      }
-    } else {
-      cv_.wait(lock);
-    }
+  while (RelativeTimeUs() <= config_.mock_time_us) {
+    SleepUs(100);
   }
 }
 
 Link::TransmitResult MockLink::Beacon() {
   uint64_t relative_time_us = RelativeTimeUs();
+  uint64_t expected_beacon_time_us = beacon_count_ * config_.beacon_interval_us;
+  EXPECT_GE(relative_time_us, expected_beacon_time_us);
+  EXPECT_LT(relative_time_us, expected_beacon_time_us + 10000);
 
-  std::unique_lock<std::mutex> lock(mutex_);
-  CHECK(next_operation_index_ < operations_.size(),
-      "next_operation_index_ out of bounds");
-  const TestOperation& operation = operations_[next_operation_index_++];
-  EXPECT_GE(relative_time_us, operation.expected_time_us);
-  EXPECT_LT(relative_time_us, operation.expected_time_us + 10000);
-  cv_.notify_one();
-  return operation.beacon.result;
+  size_t result_index = beacon_count_++ % config_.beacon_result_pattern.size();
+  return config_.beacon_result_pattern[result_index];
 }
 
 Link::ReceiveResult MockLink::Receive(Frame* frame) {
-  // TODO(aarossig): Provide a mocking mechanism.
-  return ReceiveResult::SUCCESS;
+  if (receive_count_ >= config_.receive_result.size()) {
+    return ReceiveResult::NOT_READY;
+  }
+
+  const auto& receive_frame = config_.receive_result[receive_count_++];
+  if (receive_frame.first == ReceiveResult::SUCCESS) {
+    *frame = receive_frame.second;
+  }
+
+  return receive_frame.first;
 }
 
 Link::TransmitResult MockLink::Transmit(const Frame& frame) {
@@ -75,7 +65,7 @@ Link::TransmitResult MockLink::Transmit(const Frame& frame) {
 }
 
 uint32_t MockLink::GetMaxPayloadSize() const {
-  return max_payload_size_;
+  return config_.max_payload_size;
 }
 
 uint64_t MockLink::RelativeTimeUs() const {

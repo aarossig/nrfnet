@@ -27,41 +27,27 @@ namespace nerfnet {
 // A mock link implementation used for unit testing.
 class MockLink : public Link {
  public:
-  struct TestOperation {
-    static TestOperation Beacon(uint64_t expected_time_us,
-        TransmitResult result) {
-      TestOperation operation;
-      operation.operation = Operation::BEACON;
-      operation.expected_time_us = expected_time_us;
-      operation.beacon.result = result;
-      return operation;
-    }
+  // The configuration for the mock link.
+  struct Config {
+    // The amount of time for the MockLink to operate.
+    uint64_t mock_time_us;
 
-    static TestOperation Delay(uint64_t expected_time_us) {
-      TestOperation operation;
-      operation.operation = Operation::DELAY;
-      operation.expected_time_us = expected_time_us;
-      return operation;
-    }
+    // The maximum payload size.
+    size_t max_payload_size;
 
-    enum class Operation {
-      BEACON,
-      DELAY,
-    };
+    // The expected interval between beacons.
+    uint64_t beacon_interval_us;
 
-    Operation operation;
-    uint64_t expected_time_us;
+    // The pattern of beacon results to produce. This will be repated for the
+    // duration of the mock link period.
+    std::vector<Link::TransmitResult> beacon_result_pattern;
 
-    union {
-      struct {
-        TransmitResult result;
-      } beacon;
-    };
+    // The pattern of frames for Receive() to provide.
+    std::vector<std::pair<ReceiveResult, Frame>> receive_result;
   };
 
   // Configure the MockLink with the address of this node.
-  MockLink(uint32_t address, uint32_t max_payload_size,
-      const std::vector<TestOperation>& operations);
+  MockLink(const Config& config, uint32_t address);
 
   // Waits for the test to finish execution.
   void WaitForComplete();
@@ -73,21 +59,17 @@ class MockLink : public Link {
   uint32_t GetMaxPayloadSize() const final;
 
  private:
-  // The configured maximum payload size.
-  const uint32_t max_payload_size_;
-
-  // The list of operations that the mock is expected to execute.
-  const std::vector<TestOperation> operations_;
+  // The config to use for this mock link.
+  const Config config_;
 
   // The start time of the link for timestamp comparisons.
   const uint64_t start_time_us_;
 
-  // The index of the next operation.
-  size_t next_operation_index_;
+  // The number of Beacon() calls that have been performed.
+  size_t beacon_count_;
 
-  // Synchronization.
-  std::condition_variable cv_;
-  std::mutex mutex_;
+  // The number of Receive() calls that have been performed.
+  size_t receive_count_;
 
   // Returns the time relative to the start of this link.
   uint64_t RelativeTimeUs() const;

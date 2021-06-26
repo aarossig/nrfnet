@@ -29,30 +29,42 @@ const RadioTransport::Config kTestRadioTransportConfig = {
 };
 
 // A test fixture for the RadioTransport.
-class RadioTransportTest : public ::testing::Test,
-                           public Transport::EventHandler {
+class RadioTransportBeaconTest : public ::testing::Test,
+                                 public Transport::EventHandler {
  protected:
-  RadioTransportTest()
-      : link_(/*address=*/1000, /*max_payload_size=*/32, {
-          MockLink::TestOperation::Beacon(0,
-              Link::TransmitResult::SUCCESS),
-          MockLink::TestOperation::Beacon(100000,
-              Link::TransmitResult::SUCCESS),
-          MockLink::TestOperation::Beacon(200000,
-              Link::TransmitResult::SUCCESS),
-          MockLink::TestOperation::Beacon(300000,
-              Link::TransmitResult::TRANSMIT_ERROR),
-          MockLink::TestOperation::Delay(350000),
-        }),
+  RadioTransportBeaconTest()
+      : link_({
+            /*mock_time_us=*/350000,
+            /*max_payload_size=*/32,
+            /*beacon_interval_us=*/100000,
+            /*beacon_result_pattern=*/{
+                Link::TransmitResult::SUCCESS,
+                Link::TransmitResult::SUCCESS,
+                Link::TransmitResult::SUCCESS,
+                Link::TransmitResult::TRANSMIT_ERROR,
+            },
+            /*receive_result=*/{
+                {
+                    Link::ReceiveResult::SUCCESS, {
+                        /*address=*/2000, /*payload=*/{}
+                    }
+                },
+            },
+        }, /*address=*/1000),
         transport_(&link_, this, kTestRadioTransportConfig),
-        beacon_failed_count_(0) {}
+        beacon_failed_count_(0),
+        beacon_count_(0) {}
 
   // Transport::EventHandler implementation.
   void OnBeaconFailed(Link::TransmitResult status) final {
     std::unique_lock<std::mutex> lock(mutex_);
     beacon_failed_count_++;
   }
-  void OnBeaconReceived(uint32_t address) final {}
+
+  void OnBeaconReceived(uint32_t address) final {
+    std::unique_lock<std::mutex> lock(mutex_);
+    beacon_count_++;
+  }
 
   // Synchronization.
   std::mutex mutex_;
@@ -63,12 +75,16 @@ class RadioTransportTest : public ::testing::Test,
 
   // A counter of the number of beacon failures.
   int beacon_failed_count_;
+
+  // A counter of the number of beacons received.
+  int beacon_count_;
 };
 
-TEST_F(RadioTransportTest, Beacon) {
+TEST_F(RadioTransportBeaconTest, BeaconTransmit) {
   link_.WaitForComplete();
   std::unique_lock<std::mutex> lock(mutex_);
   EXPECT_EQ(beacon_failed_count_, 1);
+  EXPECT_EQ(beacon_count_, 1);
 }
 
 }  // anonymous namespace

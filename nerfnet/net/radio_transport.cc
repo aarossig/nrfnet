@@ -16,7 +16,6 @@
 
 #include "nerfnet/net/radio_transport.h"
 
-#include "nerfnet/util/log.h"
 #include "nerfnet/util/time.h"
 
 namespace nerfnet {
@@ -29,17 +28,15 @@ RadioTransport::RadioTransport(Link* link, EventHandler* event_handler,
     const Config& config)
     : Transport(link, event_handler),
       config_(config),
-      mode_(Mode::IDLE),
       last_beacon_time_us_(0),
-      send_frame_(nullptr),
       transport_running_(true),
       beacon_thread_(&RadioTransport::BeaconThread, this),
-      transport_thread_(&RadioTransport::TransportThread, this) {}
+      receive_thread_(&RadioTransport::ReceiveThread, this) {}
 
 RadioTransport::~RadioTransport() {
   transport_running_ = false;
   beacon_thread_.join();
-  transport_thread_.join();
+  receive_thread_.join();
 }
 
 Transport::SendResult RadioTransport::Send(const NetworkFrame& frame,
@@ -47,21 +44,24 @@ Transport::SendResult RadioTransport::Send(const NetworkFrame& frame,
   // Serialize the frame.
   std::string serialized_frame;
   if (!frame.SerializeToString(&serialized_frame)) {
-    LOGE("Failed to serialize frame");
     return SendResult::INVALID_FRAME;
   }
 
-  // TODO(aarossig): Check too large.
+  size_t max_payload_size = link()->GetMaxPayloadSize();
+  if (max_payload_size <= 2 || max_payload_size > INT_MAX) {
+    return SendResult::TOO_LARGE;
+  }
 
-  // Signal the transport thread that there is a frame to send and wait up to
-  // the specified timeout for that to complete.
-  std::unique_lock<std::mutex> lock(mutex_);
-  send_frame_ = &serialized_frame;
-  send_address_ = address;
-  bool result = cv_.wait_for(lock, std::chrono::microseconds(timeout_us),
-      [this]() { return send_frame_ == nullptr; });
-  send_frame_ = nullptr;
-  return result ? SendResult::SUCCESS : SendResult::TIMEOUT;
+  max_payload_size -= 2;
+  max_payload_size = std::min(static_cast<int>(max_payload_size), UINT8_MAX)
+      * 8 * max_payload_size;
+  if (serialized_frame.size() > max_payload_size) {
+    return SendResult::TOO_LARGE;
+  }
+
+  std::unique_lock<std::mutex> lock(link_mutex_);
+  // TODO(aarossig): Send the frame.
+  return SendResult::SUCCESS;
 }
 
 void RadioTransport::BeaconThread() {
@@ -85,32 +85,24 @@ void RadioTransport::BeaconThread() {
   }
 }
 
-void RadioTransport::TransportThread() {
+void RadioTransport::ReceiveThread() {
   while (transport_running_) {
-    SleepUs(10000);
+    {
+      Link::Frame frame;
+      std::unique_lock<std::mutex> lock(link_mutex_);
+      Link::ReceiveResult receive_result = link()->Receive(&frame);
+      if (receive_result == Link::ReceiveResult::SUCCESS) {
+        if (frame.payload.empty()) {
+          event_handler()->OnBeaconReceived(frame.address);
+        } else {
+          // TODO(aarossig): Finish the receive operation.
+        }
+      }
+    }
+
+    // TODO(aarossig): Rate limit this thread based on receive activity.
+    SleepUs(100000);
   }
-}
-
-uint64_t RadioTransport::Send(uint64_t time_now_us) {
-  std::unique_lock<std::mutex> lock(mutex_);
-  if (send_frame_ == nullptr) {
-    return UINT64_MAX;
-  }
-
-  if (mode_ == Mode::IDLE) {
-    send_frame_offset_ = 0;
-    mode_ = Mode::SENDING;
-  }
-
-  if (mode_ == Mode::SENDING) {
-    // TODO(aarossig): Build the packet, send it.
-  }
-
-  return 0;
-}
-
-uint64_t RadioTransport::Receive(uint64_t time_now_us) {
-  return 0;
 }
 
 }  // namespace nerfnet
