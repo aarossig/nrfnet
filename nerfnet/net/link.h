@@ -18,7 +18,7 @@
 #define NERFNET_NET_LINK_H_
 
 #include <cstdint>
-#include <vector>
+#include <string>
 
 #include "nerfnet/util/non_copyable.h"
 
@@ -69,7 +69,7 @@ class Link : public NonCopyable {
 
     // The payload of the frame. If this is empty, then the frame is a beacon
     // frame that contains no content.
-    std::vector<uint8_t> payload;
+    std::string payload;
   };
 
   // Receives a single frame from the radio, populating the address and payload

@@ -21,6 +21,7 @@
 
 #include <condition_variable>
 #include <mutex>
+#include <vector>
 
 namespace nerfnet {
 
@@ -42,8 +43,11 @@ class MockLink : public Link {
     // duration of the mock link period.
     std::vector<Link::TransmitResult> beacon_result_pattern;
 
-    // The pattern of frames for Receive() to provide.
+    // The frames for Receive() to provide.
     std::vector<std::pair<ReceiveResult, Frame>> receive_result;
+
+    // The frames for Transmit() to be expected to send.
+    std::vector<std::pair<TransmitResult, Frame>> transmit_result;
   };
 
   // Configure the MockLink with the address of this node.
@@ -70,6 +74,9 @@ class MockLink : public Link {
 
   // The number of Receive() calls that have been performed.
   size_t receive_count_;
+
+  // The number of Transmit() calls that have been performed.
+  size_t transmit_count_;
 
   // Returns the time relative to the start of this link.
   uint64_t RelativeTimeUs() const;

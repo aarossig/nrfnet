@@ -109,8 +109,7 @@ Link::ReceiveResult NRFLink::Receive(Frame* frame) {
     | (static_cast<uint32_t>(raw_frame[3]) << 24);
 
   if (pipe_id == kDirectedPipe) {
-    frame->payload = std::vector<uint8_t>(
-        raw_frame.begin() + 4, raw_frame.end());
+    frame->payload = std::string(raw_frame.begin() + 4, raw_frame.end());
   }
 
   return ReceiveResult::SUCCESS;

@@ -55,10 +55,6 @@ add_library(transport
   transport.cc
 )
 
-target_link_libraries(transport
-  nerfnet_proto
-)
-
 # mock link ####################################################################
 
 add_library(mock_link
@@ -68,6 +64,7 @@ add_library(mock_link
 target_link_libraries(mock_link PUBLIC
   gtest
   link
+  pthread
   util
 )
 

@@ -17,6 +17,8 @@
 #ifndef NERFNET_NET_RADIO_TRANSPORT_H_
 #define NERFNET_NET_RADIO_TRANSPORT_H_
 
+#include <atomic>
+#include <climits>
 #include <condition_variable>
 #include <thread>
 
@@ -46,7 +48,7 @@ class RadioTransport : public Transport {
   virtual ~RadioTransport();
 
   // Transport implementation.
-  SendResult Send(const NetworkFrame& frame, uint32_t address,
+  SendResult Send(const std::string& frame, uint32_t address,
                   uint64_t timeout_us) final;
 
  private:
@@ -72,6 +74,10 @@ class RadioTransport : public Transport {
   // The thread to receive frames on. This allows continuously monitoring
   // for incoming packets and beacons to dispatch to the event handler.
   void ReceiveThread();
+
+  // Builds a payload given a verb, sequence id and contents.
+  std::string BuildPayload(uint8_t flags, uint8_t sequence_id,
+      const std::string& contents);
 };
 
 }  // namespace nerfnet

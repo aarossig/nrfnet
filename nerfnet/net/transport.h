@@ -17,8 +17,9 @@
 #ifndef NERFNET_NET_TRANSPORT_H_
 #define NERFNET_NET_TRANSPORT_H_
 
+#include <string>
+
 #include "nerfnet/net/link.h"
-#include "nerfnet/net/nerfnet.pb.h"
 #include "nerfnet/util/non_copyable.h"
 
 namespace nerfnet {
@@ -61,10 +62,16 @@ class Transport : public NonCopyable {
 
     // The frame transmission deadline was exceeded.
     TIMEOUT,
+
+    // There was an error sending this frame over the link.
+    TRANSMIT_ERROR,
+
+    // There was an error receiving a response to this frame.
+    RECEIVE_ERROR,
   };
 
   // Sends an arbitrary size data over the link.
-  virtual SendResult Send(const NetworkFrame& frame, uint32_t address,
+  virtual SendResult Send(const std::string& frame, uint32_t address,
                           uint64_t timeout_us) = 0;
 
   // Returns the link associated with this transport.

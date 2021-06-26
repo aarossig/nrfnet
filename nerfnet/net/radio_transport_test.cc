@@ -28,29 +28,12 @@ const RadioTransport::Config kTestRadioTransportConfig = {
   /*beacon_interval_us=*/100000,  // 100ms.
 };
 
-// A test fixture for the RadioTransport.
-class RadioTransportBeaconTest : public ::testing::Test,
-                                 public Transport::EventHandler {
+// A super class for test fixtures for the RadioTransport.
+class RadioTransportTest : public ::testing::Test,
+                           public Transport::EventHandler {
  protected:
-  RadioTransportBeaconTest()
-      : link_({
-            /*mock_time_us=*/350000,
-            /*max_payload_size=*/32,
-            /*beacon_interval_us=*/100000,
-            /*beacon_result_pattern=*/{
-                Link::TransmitResult::SUCCESS,
-                Link::TransmitResult::SUCCESS,
-                Link::TransmitResult::SUCCESS,
-                Link::TransmitResult::TRANSMIT_ERROR,
-            },
-            /*receive_result=*/{
-                {
-                    Link::ReceiveResult::SUCCESS, {
-                        /*address=*/2000, /*payload=*/{}
-                    }
-                },
-            },
-        }, /*address=*/1000),
+  RadioTransportTest(const MockLink::Config& config)
+      : link_(config, /*address=*/1000),
         transport_(&link_, this, kTestRadioTransportConfig),
         beacon_failed_count_(0),
         beacon_count_(0) {}
@@ -80,11 +63,137 @@ class RadioTransportBeaconTest : public ::testing::Test,
   int beacon_count_;
 };
 
-TEST_F(RadioTransportBeaconTest, BeaconTransmit) {
+/* Beacon Test ****************************************************************/
+
+class RadioTransportBeaconTest : public RadioTransportTest {
+ protected:
+  RadioTransportBeaconTest() : RadioTransportTest({
+      /*mock_time_us=*/350000,
+      /*max_payload_size=*/32,
+      /*beacon_interval_us=*/100000,
+      /*beacon_result_pattern=*/{
+          Link::TransmitResult::SUCCESS,
+          Link::TransmitResult::SUCCESS,
+          Link::TransmitResult::SUCCESS,
+          Link::TransmitResult::TRANSMIT_ERROR,
+      },
+      /*receive_result=*/{
+          {
+              Link::ReceiveResult::SUCCESS, {
+                  /*address=*/2000, /*payload=*/{},
+              },
+          },
+      },
+  }) {}
+};
+
+TEST_F(RadioTransportBeaconTest, Beacon) {
   link_.WaitForComplete();
   std::unique_lock<std::mutex> lock(mutex_);
   EXPECT_EQ(beacon_failed_count_, 1);
   EXPECT_EQ(beacon_count_, 1);
+}
+
+/* Send Test ******************************************************************/
+
+class RadioTransportSendTest : public RadioTransportTest {
+ protected:
+  RadioTransportSendTest() : RadioTransportTest({
+      /*mock_time_us=*/0,
+      /*max_payload_size=*/8,
+      /*beacon_interval_us=*/100000,
+      /*beacon_result_pattern=*/{
+          Link::TransmitResult::SUCCESS,
+      },
+      /*receive_result=*/{
+          {
+              Link::ReceiveResult::SUCCESS, {
+                  /*address=*/2000, /*payload=*/{
+                    0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
+                  },
+              },
+          }, {
+              Link::ReceiveResult::SUCCESS, {
+                  /*address=*/2000, /*payload=*/{
+                    0x02, 0x00, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00,
+                  },
+              },
+          },
+      },
+      /*transmit_result=*/{
+          {
+              Link::TransmitResult::SUCCESS, {
+                  /*address=*/2000, /*payload=*/{
+                      0x01, 0x00, 0x0c, 0x00, 0x01, 0x02, 0x03, 0x04,
+                  },
+              },
+          }, {
+              Link::TransmitResult::SUCCESS, {
+                  /*address=*/2000, /*payload=*/{
+                      0x00, 0x01, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a,
+                  },
+              },
+          }, {
+              Link::TransmitResult::SUCCESS, {
+                  /*address=*/2000, /*payload=*/{
+                      0x02, 0x02, 0x0b, 0x0c, 0x00, 0x00, 0x00, 0x00,
+                  },
+              },
+          },
+      },
+  }) {}
+};
+
+TEST_F(RadioTransportSendTest, Send) {
+  EXPECT_EQ(transport_.Send("\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c",
+      /*address=*/2000, /*timeout_us=*/10000), Transport::SendResult::SUCCESS);
+  link_.WaitForComplete();
+  std::unique_lock<std::mutex> lock(mutex_);
+}
+
+/* Send Small Packet Test *****************************************************/
+
+class RadioTransportSendSmallPacketTest : public RadioTransportTest {
+ protected:
+  RadioTransportSendSmallPacketTest() : RadioTransportTest({
+      /*mock_time_us=*/0,
+      /*max_payload_size=*/32,
+      /*beacon_interval_us=*/100000,
+      /*beacon_result_pattern=*/{
+          Link::TransmitResult::SUCCESS,
+      },
+      /*receive_result=*/{
+          {
+              Link::ReceiveResult::SUCCESS, {
+                  /*address=*/2000, /*payload=*/{
+                    0x03, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
+                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                  },
+              },
+          }, {
+              Link::ReceiveResult::SUCCESS, {
+                  /*address=*/2000, /*payload=*/{},
+              },
+          },
+      },
+      /*transmit_result=*/{
+          {
+              Link::TransmitResult::SUCCESS, {
+                  /*address=*/2000, /*payload=*/{
+                      0x03, 0x00, 0x04, 0x00, 0x01, 0x02, 0x03, 0x04,
+                  },
+              },
+          },
+      },
+  }) {}
+};
+
+TEST_F(RadioTransportSendSmallPacketTest, SendSmallPacket) {
+  EXPECT_EQ(transport_.Send("\x01\x02\x03\x04",
+      /*address=*/2000, /*timeout_us=*/10000), Transport::SendResult::SUCCESS);
+  link_.WaitForComplete();
 }
 
 }  // anonymous namespace

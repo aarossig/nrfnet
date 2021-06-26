@@ -16,9 +16,20 @@
 
 #include "nerfnet/net/radio_transport.h"
 
+#include <set>
+
+#include "nerfnet/util/log.h"
 #include "nerfnet/util/time.h"
 
 namespace nerfnet {
+namespace {
+
+// Start/finish packet flags and mask.
+constexpr uint8_t kFlagStart = 0x01;
+constexpr uint8_t kFlagFinish = 0x02;
+constexpr uint8_t kMaskStartFinish = 0x03;
+
+}  // anonymous namespace
 
 const RadioTransport::Config RadioTransport::kDefaultConfig = {
   /*beacon_interval_us=*/100000,  // 100ms.
@@ -39,28 +50,99 @@ RadioTransport::~RadioTransport() {
   receive_thread_.join();
 }
 
-Transport::SendResult RadioTransport::Send(const NetworkFrame& frame,
+Transport::SendResult RadioTransport::Send(const std::string& frame,
     uint32_t address, uint64_t timeout_us) {
-  // Serialize the frame.
-  std::string serialized_frame;
-  if (!frame.SerializeToString(&serialized_frame)) {
-    return SendResult::INVALID_FRAME;
-  }
+  const uint64_t start_time_us = TimeNowUs();
 
   size_t max_payload_size = link()->GetMaxPayloadSize();
   if (max_payload_size <= 2 || max_payload_size > INT_MAX) {
     return SendResult::TOO_LARGE;
   }
 
-  max_payload_size -= 2;
-  max_payload_size = std::min(static_cast<int>(max_payload_size), UINT8_MAX)
-      * 8 * max_payload_size;
-  if (serialized_frame.size() > max_payload_size) {
+  // Prepend the length of the frame.
+  std::string wire_frame;
+  wire_frame.push_back(static_cast<uint8_t>(frame.size()));
+  wire_frame.push_back(static_cast<uint8_t>(frame.size() >> 8));
+  wire_frame += frame;
+
+  size_t max_fragment_size = max_payload_size - 2;
+  size_t max_frame_size = std::min(
+      static_cast<int>(max_fragment_size), UINT8_MAX) * 8 * (max_fragment_size);
+  if (wire_frame.size() > max_frame_size) {
     return SendResult::TOO_LARGE;
   }
 
+  Link::Frame transmit_frame = {};
+  transmit_frame.address = address;
+
   std::unique_lock<std::mutex> lock(link_mutex_);
-  // TODO(aarossig): Send the frame.
+  std::set<uint8_t> acknowledged_seq_ids;
+  uint8_t max_seq_id = (wire_frame.size() / max_fragment_size) + 1;
+  while (acknowledged_seq_ids.size() != max_seq_id) {
+    for (uint8_t seq_id = 0; seq_id < max_seq_id; seq_id++) {
+      if (acknowledged_seq_ids.find(seq_id) != acknowledged_seq_ids.end()) {
+        continue;
+      }
+
+      // Build the frame to send over the link.
+      const size_t payload_offset = seq_id * max_fragment_size;
+      uint8_t flags = seq_id == 0 ? kFlagStart : 0;
+      flags |= seq_id == max_seq_id - 1 ? kFlagFinish : 0;
+      transmit_frame.payload = BuildPayload(flags, seq_id,
+          wire_frame.substr(payload_offset, max_fragment_size));
+      transmit_frame.payload.resize(max_payload_size, '\0');
+
+      // Send the frame.
+      Link::TransmitResult transmit_result = link()->Transmit(transmit_frame);
+      if (transmit_result != Link::TransmitResult::SUCCESS) {
+        LOGE("Failed to transmit frame: %d", transmit_result);
+        return SendResult::TRANSMIT_ERROR;
+      }
+   
+      // Listen for acks if needed.
+      if ((flags & kMaskStartFinish) > 0) {
+        Link::Frame receive_frame = {};
+        Link::ReceiveResult receive_result;
+
+        do {
+          receive_result = link()->Receive(&receive_frame);
+          if ((TimeNowUs() - start_time_us) > timeout_us) {
+            return SendResult::TIMEOUT;
+          }
+        } while (receive_result == Link::ReceiveResult::NOT_READY);
+    
+        if (receive_result != Link::ReceiveResult::SUCCESS) {
+          LOGE("Failed to receive frame: %d", receive_result);
+          return SendResult::RECEIVE_ERROR;
+        }
+    
+        if (receive_frame.payload.empty()) {
+          event_handler()->OnBeaconReceived(receive_frame.address);
+        } else if (receive_frame.payload.size() != max_payload_size) {
+          LOGW("Frame length mismatch (%zu vs expected %zu)",
+              receive_frame.payload.size(), max_payload_size);
+        } else if ((receive_frame.payload[0] & kMaskStartFinish) != flags) {
+          LOGW("Invalid flags received (0x%02x vs expected 0x%02x)",
+              receive_frame.payload[0] & kMaskStartFinish, flags);
+        } else {
+          uint8_t check_seq_id = 0;
+          for (size_t i = 2;
+               i < receive_frame.payload.size() && check_seq_id < max_seq_id;
+               i++) {
+            for (size_t bit_index = 0;
+                 bit_index < 8 && check_seq_id < max_seq_id; bit_index++) {
+              if (receive_frame.payload[i] & (1 << check_seq_id)) {
+                acknowledged_seq_ids.insert(check_seq_id);
+              }
+
+              check_seq_id++;
+            }
+          }
+        }
+      }
+    }
+  }
+
   return SendResult::SUCCESS;
 }
 
@@ -101,8 +183,17 @@ void RadioTransport::ReceiveThread() {
     }
 
     // TODO(aarossig): Rate limit this thread based on receive activity.
-    SleepUs(100000);
+    SleepUs(10000);
   }
+}
+
+std::string RadioTransport::BuildPayload(uint8_t flags, uint8_t sequence_id,
+    const std::string& contents) {
+  std::string payload;
+  payload.push_back(flags);
+  payload.push_back(sequence_id);
+  payload += contents;
+  return payload;
 }
 
 }  // namespace nerfnet

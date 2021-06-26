@@ -28,12 +28,15 @@ MockLink::MockLink(const Config& config, uint32_t address)
       config_(config),
       start_time_us_(TimeNowUs()),
       beacon_count_(0),
-      receive_count_(0) {}
+      receive_count_(0),
+      transmit_count_(0) {}
 
 void MockLink::WaitForComplete() {
   while (RelativeTimeUs() <= config_.mock_time_us) {
     SleepUs(100);
   }
+
+  EXPECT_EQ(transmit_count_, config_.transmit_result.size());
 }
 
 Link::TransmitResult MockLink::Beacon() {
@@ -51,17 +54,22 @@ Link::ReceiveResult MockLink::Receive(Frame* frame) {
     return ReceiveResult::NOT_READY;
   }
 
-  const auto& receive_frame = config_.receive_result[receive_count_++];
-  if (receive_frame.first == ReceiveResult::SUCCESS) {
-    *frame = receive_frame.second;
+  const auto& receive_result = config_.receive_result[receive_count_++];
+  if (receive_result.first == ReceiveResult::SUCCESS) {
+    *frame = receive_result.second;
   }
 
-  return receive_frame.first;
+  return receive_result.first;
 }
 
 Link::TransmitResult MockLink::Transmit(const Frame& frame) {
-  // TODO(aarossig): Provide a mocking mechanism.
-  return TransmitResult::SUCCESS;
+  CHECK(transmit_count_ < config_.transmit_result.size(),
+      "Transmit() called too many times");
+
+  const auto& transmit_result = config_.transmit_result[transmit_count_++];
+  EXPECT_EQ(transmit_result.second.address, frame.address);
+  EXPECT_EQ(transmit_result.second.payload, frame.payload);
+  return transmit_result.first;
 }
 
 uint32_t MockLink::GetMaxPayloadSize() const {
