@@ -45,6 +45,10 @@ Link::TransmitResult MockLink::Beacon() {
   EXPECT_GE(relative_time_us, expected_beacon_time_us);
   EXPECT_LT(relative_time_us, expected_beacon_time_us + 10000);
 
+  if (config_.beacon_result_pattern.empty()) {
+    return Link::TransmitResult::SUCCESS;
+  }
+
   size_t result_index = beacon_count_++ % config_.beacon_result_pattern.size();
   return config_.beacon_result_pattern[result_index];
 }

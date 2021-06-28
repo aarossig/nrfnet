@@ -24,6 +24,8 @@
 namespace nerfnet {
 namespace {
 
+/* Common Transport Test ******************************************************/
+
 const RadioTransport::Config kTestRadioTransportConfig = {
   /*beacon_interval_us=*/100000,  // 100ms.
 };
@@ -49,6 +51,11 @@ class RadioTransportTest : public ::testing::Test,
     beacon_count_++;
   }
 
+  void OnFrameReceived(uint32_t address, const std::string& frame) final {
+    std::unique_lock<std::mutex> lock(mutex_);
+    received_frames_.push_back({address, frame});
+  }
+
   // Synchronization.
   std::mutex mutex_;
 
@@ -61,6 +68,9 @@ class RadioTransportTest : public ::testing::Test,
 
   // A counter of the number of beacons received.
   int beacon_count_;
+
+  // The list of received frames.
+  std::vector<std::pair<uint8_t, std::string>> received_frames_;
 };
 
 /* Beacon Test ****************************************************************/
@@ -92,6 +102,38 @@ TEST_F(RadioTransportBeaconTest, Beacon) {
   std::unique_lock<std::mutex> lock(mutex_);
   EXPECT_EQ(beacon_failed_count_, 1);
   EXPECT_EQ(beacon_count_, 1);
+}
+
+/* GetMaxSubFrameSize Tests ***************************************************/
+
+class RadioTransportGetMaxSubFrameSizeTest : public RadioTransportTest {
+ protected:
+  RadioTransportGetMaxSubFrameSizeTest() : RadioTransportTest({
+      /*mock_time_us=*/0,
+      /*max_payload_size=*/32,
+      /*beacon_interval_us=*/100000,
+      /*beacon_result_pattern=*/{},
+      /*receive_result=*/{},
+  }) {}
+};
+
+TEST_F(RadioTransportGetMaxSubFrameSizeTest, GetMaxSubFrameSize) {
+  EXPECT_EQ(transport_.GetMaxSubFrameSize(), 7200);
+}
+
+class RadioTransportGetMaxSubFrameSizeJumboTest : public RadioTransportTest {
+ protected:
+  RadioTransportGetMaxSubFrameSizeJumboTest() : RadioTransportTest({
+      /*mock_time_us=*/0,
+      /*max_payload_size=*/300,
+      /*beacon_interval_us=*/100000,
+      /*beacon_result_pattern=*/{},
+      /*receive_result=*/{},
+  }) {}
+};
+
+TEST_F(RadioTransportGetMaxSubFrameSizeJumboTest, GetMaxSubFrameSizeJumbo) {
+  EXPECT_EQ(transport_.GetMaxSubFrameSize(), 520200);
 }
 
 /* Send Test ******************************************************************/
@@ -144,12 +186,14 @@ class RadioTransportSendTest : public RadioTransportTest {
   }) {}
 };
 
+#if 0
 TEST_F(RadioTransportSendTest, Send) {
   EXPECT_EQ(transport_.Send("\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c",
       /*address=*/2000, /*timeout_us=*/10000), Transport::SendResult::SUCCESS);
   link_.WaitForComplete();
   std::unique_lock<std::mutex> lock(mutex_);
 }
+#endif
 
 /* Send Small Packet Test *****************************************************/
 
@@ -183,6 +227,9 @@ class RadioTransportSendSmallPacketTest : public RadioTransportTest {
               Link::TransmitResult::SUCCESS, {
                   /*address=*/2000, /*payload=*/{
                       0x03, 0x00, 0x04, 0x00, 0x01, 0x02, 0x03, 0x04,
+                      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                   },
               },
           },
@@ -190,11 +237,52 @@ class RadioTransportSendSmallPacketTest : public RadioTransportTest {
   }) {}
 };
 
+#if 0
 TEST_F(RadioTransportSendSmallPacketTest, SendSmallPacket) {
   EXPECT_EQ(transport_.Send("\x01\x02\x03\x04",
       /*address=*/2000, /*timeout_us=*/10000), Transport::SendResult::SUCCESS);
   link_.WaitForComplete();
 }
+#endif
+
+/* Receive Test ***************************************************************/
+
+class RadioTransportReceiveTest : public RadioTransportTest {
+ protected:
+  RadioTransportReceiveTest() : RadioTransportTest({
+      /*mock_time_us=*/1000,
+      /*max_payload_size=*/8,
+      /*beacon_interval_us=*/100000,
+      /*beacon_result_pattern=*/{
+          Link::TransmitResult::SUCCESS,
+      },
+      /*receive_result=*/{
+          {
+              Link::ReceiveResult::SUCCESS, {
+                  /*address=*/2000, /*payload=*/{
+                    0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
+                  },
+              },
+          }, {
+              Link::ReceiveResult::SUCCESS, {
+                  /*address=*/2000, /*payload=*/{
+                    0x02, 0x00, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00,
+                  },
+              },
+          },
+      },
+      /*transmit_result=*/{
+      },
+  }) {}
+};
+
+#if 0
+TEST_F(RadioTransportReceiveTest, Receive) {
+  link_.WaitForComplete();
+  std::unique_lock<std::mutex> lock(mutex_);
+  ASSERT_EQ(received_frames_.size(), 1);
+}
+#endif
 
 }  // anonymous namespace
 }  // namespace nerfnet

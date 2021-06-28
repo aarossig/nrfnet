@@ -16,6 +16,7 @@
 
 #include "nerfnet/net/radio_transport.h"
 
+#include <map>
 #include <set>
 
 #include "nerfnet/util/log.h"
@@ -28,6 +29,9 @@ namespace {
 constexpr uint8_t kFlagStart = 0x01;
 constexpr uint8_t kFlagFinish = 0x02;
 constexpr uint8_t kMaskStartFinish = 0x03;
+
+// The maximum amount of time to await a reply when sending/receiving a frame.
+constexpr uint64_t kReceiveTimeoutUs = 10000;
 
 }  // anonymous namespace
 
@@ -42,7 +46,13 @@ RadioTransport::RadioTransport(Link* link, EventHandler* event_handler,
       last_beacon_time_us_(0),
       transport_running_(true),
       beacon_thread_(&RadioTransport::BeaconThread, this),
-      receive_thread_(&RadioTransport::ReceiveThread, this) {}
+      receive_thread_(&RadioTransport::ReceiveThread, this) {
+  constexpr size_t kMinimumPayloadSize = 5;
+  size_t max_payload_size = link->GetMaxPayloadSize();
+  CHECK(max_payload_size > kMinimumPayloadSize,
+      "Link minimum payload size too small (%zu vs expected %zu)",
+      max_payload_size, kMinimumPayloadSize);
+}
 
 RadioTransport::~RadioTransport() {
   transport_running_ = false;
@@ -79,7 +89,8 @@ Transport::SendResult RadioTransport::Send(const std::string& frame,
   std::set<uint8_t> acknowledged_seq_ids;
   uint8_t max_seq_id = (wire_frame.size() / max_fragment_size) + 1;
   while (acknowledged_seq_ids.size() != max_seq_id) {
-    for (uint8_t seq_id = 0; seq_id < max_seq_id; seq_id++) {
+    bool receive_timeout = false;
+    for (uint8_t seq_id = 0; seq_id < max_seq_id && !receive_timeout; seq_id++) {
       if (acknowledged_seq_ids.find(seq_id) != acknowledged_seq_ids.end()) {
         continue;
       }
@@ -104,38 +115,42 @@ Transport::SendResult RadioTransport::Send(const std::string& frame,
         Link::Frame receive_frame = {};
         Link::ReceiveResult receive_result;
 
+        uint64_t receive_time_us = TimeNowUs();
         do {
           receive_result = link()->Receive(&receive_frame);
           if ((TimeNowUs() - start_time_us) > timeout_us) {
             return SendResult::TIMEOUT;
+          } else if ((TimeNowUs() - receive_time_us) > kReceiveTimeoutUs) {
+            receive_timeout = true;
+            break;
           }
         } while (receive_result == Link::ReceiveResult::NOT_READY);
     
-        if (receive_result != Link::ReceiveResult::SUCCESS) {
-          LOGE("Failed to receive frame: %d", receive_result);
-          return SendResult::RECEIVE_ERROR;
-        }
-    
-        if (receive_frame.payload.empty()) {
-          event_handler()->OnBeaconReceived(receive_frame.address);
-        } else if (receive_frame.payload.size() != max_payload_size) {
-          LOGW("Frame length mismatch (%zu vs expected %zu)",
-              receive_frame.payload.size(), max_payload_size);
-        } else if ((receive_frame.payload[0] & kMaskStartFinish) != flags) {
-          LOGW("Invalid flags received (0x%02x vs expected 0x%02x)",
-              receive_frame.payload[0] & kMaskStartFinish, flags);
-        } else {
-          uint8_t check_seq_id = 0;
-          for (size_t i = 2;
-               i < receive_frame.payload.size() && check_seq_id < max_seq_id;
-               i++) {
-            for (size_t bit_index = 0;
-                 bit_index < 8 && check_seq_id < max_seq_id; bit_index++) {
-              if (receive_frame.payload[i] & (1 << check_seq_id)) {
-                acknowledged_seq_ids.insert(check_seq_id);
-              }
+        if (!receive_timeout) {
+          if (receive_result != Link::ReceiveResult::SUCCESS) {
+            LOGE("Failed to receive frame: %d", receive_result);
+            return SendResult::RECEIVE_ERROR;
+          } else if (receive_frame.payload.empty()) {
+            event_handler()->OnBeaconReceived(receive_frame.address);
+          } else if (receive_frame.payload.size() != max_payload_size) {
+            LOGW("Frame length mismatch (%zu vs expected %zu)",
+                receive_frame.payload.size(), max_payload_size);
+          } else if ((receive_frame.payload[0] & kMaskStartFinish) != flags) {
+            LOGW("Invalid flags received (0x%02x vs expected 0x%02x)",
+                receive_frame.payload[0] & kMaskStartFinish, flags);
+          } else {
+            uint8_t check_seq_id = 0;
+            for (size_t i = 2;
+                 i < receive_frame.payload.size() && check_seq_id < max_seq_id;
+                 i++) {
+              for (size_t bit_index = 0;
+                   bit_index < 8 && check_seq_id < max_seq_id; bit_index++) {
+                if (receive_frame.payload[i] & (1 << bit_index)) {
+                  acknowledged_seq_ids.insert(check_seq_id);
+                }
 
-              check_seq_id++;
+                check_seq_id++;
+              }
             }
           }
         }
@@ -144,6 +159,12 @@ Transport::SendResult RadioTransport::Send(const std::string& frame,
   }
 
   return SendResult::SUCCESS;
+}
+
+size_t RadioTransport::GetMaxSubFrameSize() const {
+  size_t payload_size = link()->GetMaxPayloadSize() - 2;
+  payload_size = std::min(payload_size, static_cast<size_t>(UINT8_MAX));
+  return payload_size * 8 * payload_size;
 }
 
 void RadioTransport::BeaconThread() {
@@ -169,21 +190,96 @@ void RadioTransport::BeaconThread() {
 
 void RadioTransport::ReceiveThread() {
   while (transport_running_) {
-    {
-      Link::Frame frame;
-      std::unique_lock<std::mutex> lock(link_mutex_);
-      Link::ReceiveResult receive_result = link()->Receive(&frame);
-      if (receive_result == Link::ReceiveResult::SUCCESS) {
-        if (frame.payload.empty()) {
-          event_handler()->OnBeaconReceived(frame.address);
-        } else {
-          // TODO(aarossig): Finish the receive operation.
+    // TODO(aarossig): Rate limit this thread based on receive activity.
+    SleepUs(10000);
+
+    Link::Frame frame;
+    std::unique_lock<std::mutex> lock(link_mutex_);
+    Link::ReceiveResult receive_result = link()->Receive(&frame);
+    if (receive_result != Link::ReceiveResult::NOT_READY) {
+      LOGW("Failed to receive frame: %u", receive_result);
+    } else if (receive_result == Link::ReceiveResult::SUCCESS) {
+      if (frame.payload.empty()) {
+        event_handler()->OnBeaconReceived(frame.address);
+      } else if (frame.payload.size() != link()->GetMaxPayloadSize()) {
+        LOGW("Received frame length mismatch (%zu vs expected %zu",
+            frame.payload.size(), link()->GetMaxPayloadSize());
+      } else if ((frame.payload[0] & kFlagStart) != kFlagStart) {
+        LOGW("Received non-start frame from %u", frame.address);
+      } else {
+        bool frame_dispatched = false;
+        uint32_t address = frame.address;
+        std::map<uint8_t, std::string> received_frames;
+        Link::ReceiveResult receive_result = Link::ReceiveResult::SUCCESS;
+
+        while (transport_running_ && !frame_dispatched
+               && receive_result == Link::ReceiveResult::SUCCESS) {
+          if (frame.payload.empty()) {
+            event_handler()->OnBeaconReceived(frame.address);
+          } else if (frame.address != address) {
+            LOGW("Ignoring packet from %u", frame.address);
+          } else {
+            uint8_t flags = frame.payload[0];
+            // TODO(aarossig): Validate this seq_id.
+            uint8_t seq_id = frame.payload[1];
+            std::string payload = frame.payload.substr(2);
+
+            if ((flags & kFlagFinish) == kFlagFinish) {
+              bool packet_received = true;
+              for (uint16_t i = 0; i <= seq_id; i++) {
+                if (received_frames.find(i) == received_frames.end()) {
+                  packet_received = false;
+                  break;
+                }
+              }
+
+              if (packet_received) {
+                size_t length = received_frames[0][0]
+                    | (static_cast<uint16_t>(received_frames[0][1]) << 8);
+                std::string payload = received_frames[0].substr(2);
+                for (uint16_t i = 1; i <= seq_id; i++) {
+                  payload += received_frames[i];
+                }
+
+                // TODO(aarossig): Validate this length input.
+                payload = payload.substr(2, length);
+                event_handler()->OnFrameReceived(address, payload);
+                frame_dispatched = true;
+              }
+            }
+
+            if ((flags & kMaskStartFinish) > 0) {
+              std::string ack_mask(link()->GetMaxPayloadSize() - 2, '\0');
+              for (const auto& received_frame : received_frames) {
+                uint8_t seq_id = received_frame.first;
+                uint8_t byte = seq_id / 8;
+                uint8_t bit = seq_id % 8;
+                ack_mask[byte] |= (1 << bit);
+              }
+
+              Link::Frame response;
+              response.address = address;
+              response.payload = BuildPayload(
+                  flags & kMaskStartFinish, 0, ack_mask);
+              link()->Transmit(response);
+            }
+
+          }
+
+          // Receive the next frame.
+          uint64_t start_receive_time_us = TimeNowUs();
+          Link::ReceiveResult receive_result = Link::ReceiveResult::NOT_READY;
+          do {
+            if ((TimeNowUs() - start_receive_time_us) > kReceiveTimeoutUs) {
+              receive_result = Link::ReceiveResult::NOT_READY;
+              break;
+            }
+
+            receive_result = link()->Receive(&frame);
+          } while (receive_result == Link::ReceiveResult::NOT_READY);
         }
       }
     }
-
-    // TODO(aarossig): Rate limit this thread based on receive activity.
-    SleepUs(10000);
   }
 }
 

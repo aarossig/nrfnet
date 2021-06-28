@@ -40,6 +40,11 @@ class Transport : public NonCopyable {
     // This method is called on an internal thread so appropriate locks must be
     // held.
     virtual void OnBeaconReceived(uint32_t address) = 0;
+
+    // Called when a frame is received. Frames may be received at any time. This
+    // method is called on an internal thread so appropriate locks must be held.
+    virtual void OnFrameReceived(uint32_t address,
+        const std::string& frame) = 0;
   };
 
   // Setup a transport given a supplied link. The lifespan of the link must be
