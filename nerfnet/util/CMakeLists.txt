@@ -4,6 +4,25 @@
 #
 ################################################################################
 
+# crc16 ########################################################################
+
+add_library(util_crc16
+  crc16.cc
+)
+
+add_executable(crc16_test
+  crc16_test.cc
+)
+
+target_link_libraries(crc16_test PUBLIC
+  gtest_main
+  gtest
+  pthread
+  util_crc16
+)
+
+gtest_discover_tests(crc16_test WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+
 # file #########################################################################
 
 add_library(util_file
