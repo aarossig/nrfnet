@@ -16,6 +16,8 @@
 
 #include "nerfnet/util/encode_decode.h"
 
+#include "nerfnet/util/log.h"
+
 #if !defined(__BYTE_ORDER__) || !defined(__ORDER_LITTLE_ENDIAN__)
 #error "__BYTE_ORDER__ and __ORDER_LITTLE_ENDIAN__ must be defined"
 #endif
@@ -33,6 +35,16 @@ std::string EncodeValue(uint32_t value) {
   encoded_value.push_back(static_cast<uint8_t>(value >> 16));
   encoded_value.push_back(static_cast<uint8_t>(value >> 24));
   return encoded_value;
+}
+
+uint32_t DecodeValue(const std::string_view& str) {
+  CHECK(str.size() >= sizeof(uint32_t),
+      "Unable to decode string with size %zu vs expected %zu",
+      str.size(), sizeof(uint32_t));
+  return static_cast<uint32_t>(str[0])
+      | (static_cast<uint32_t>(str[1]) << 8)
+      | (static_cast<uint32_t>(str[2]) << 16)
+      | (static_cast<uint32_t>(str[3]) << 24);
 }
 
 }  // namespace nerfnet

@@ -29,6 +29,10 @@ add_library(util_encode_decode
   encode_decode.cc
 )
 
+target_link_libraries(util_encode_decode PUBLIC
+  util
+)
+
 add_executable(encode_decode_test
   encode_decode_test.cc
 )

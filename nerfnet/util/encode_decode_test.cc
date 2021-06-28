@@ -16,6 +16,7 @@
 
 #include <gtest/gtest.h>
 
+#include "nerfnet/util/log.h"
 #include "nerfnet/util/encode_decode.h"
 
 namespace nerfnet {
@@ -23,6 +24,10 @@ namespace {
 
 TEST(EncodeDecodeTest, EncodeUnsigned32BitInteger) {
   EXPECT_EQ(EncodeValue(0xdeadbeef), "\xef\xbe\xad\xde");
+}
+
+TEST(EncodeDecodeTest, DecodeUnsigned32BitInteger) {
+  EXPECT_EQ(DecodeValue("\xef\xbe\xad\xde"), 0xdeadbeef);
 }
 
 }  // anonymous namespace
