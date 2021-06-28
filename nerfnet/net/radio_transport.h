@@ -51,9 +51,28 @@ class RadioTransport : public Transport {
   SendResult Send(const std::string& frame, uint32_t address,
                   uint64_t timeout_us) final;
 
+  /**** Visible for testing. */
+
   // Returns the maximum sub-frame size.
-  // Visible for testing.
   size_t GetMaxSubFrameSize() const;
+
+  // The type of frame to emit.
+  // Visible for testing.
+  enum class FrameType : uint8_t {
+    BEGIN = 0x01,
+    END = 0x02,
+  };
+
+  // Builds a frame given a frame type and whether this is an ack frame.
+  Link::Frame BuildBeginEndFrame(uint32_t address,
+      FrameType frame_type, bool ack) const;
+
+  // Builds a frame given a sequence id and payload. The payload size must be
+  // 2 bytes smaller than the maximum payload size.
+  Link::Frame BuildPayloadFrame(uint32_t address,
+      uint8_t sequence_id, const std::string& payload) const;
+
+  /**** End visible for testing. */
 
  private:
   // The config to use for this transport.
@@ -78,6 +97,7 @@ class RadioTransport : public Transport {
   // The thread to receive frames on. This allows continuously monitoring
   // for incoming packets and beacons to dispatch to the event handler.
   void ReceiveThread();
+
 
   // Builds a payload given a verb, sequence id and contents.
   std::string BuildPayload(uint8_t flags, uint8_t sequence_id,

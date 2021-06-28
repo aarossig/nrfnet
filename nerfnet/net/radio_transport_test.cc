@@ -104,11 +104,11 @@ TEST_F(RadioTransportBeaconTest, Beacon) {
   EXPECT_EQ(beacon_count_, 1);
 }
 
-/* GetMaxSubFrameSize Tests ***************************************************/
+/* NormalMaxSubFrameSize Tests ************************************************/
 
-class RadioTransportGetMaxSubFrameSizeTest : public RadioTransportTest {
+class RadioTransportNormalMaxSubFrameSizeTest : public RadioTransportTest {
  protected:
-  RadioTransportGetMaxSubFrameSizeTest() : RadioTransportTest({
+  RadioTransportNormalMaxSubFrameSizeTest() : RadioTransportTest({
       /*mock_time_us=*/0,
       /*max_payload_size=*/32,
       /*beacon_interval_us=*/100000,
@@ -117,23 +117,36 @@ class RadioTransportGetMaxSubFrameSizeTest : public RadioTransportTest {
   }) {}
 };
 
-TEST_F(RadioTransportGetMaxSubFrameSizeTest, GetMaxSubFrameSize) {
+TEST_F(RadioTransportNormalMaxSubFrameSizeTest, GetMaxSubFrameSize) {
   EXPECT_EQ(transport_.GetMaxSubFrameSize(), 7200);
 }
 
-class RadioTransportGetMaxSubFrameSizeJumboTest : public RadioTransportTest {
- protected:
-  RadioTransportGetMaxSubFrameSizeJumboTest() : RadioTransportTest({
-      /*mock_time_us=*/0,
-      /*max_payload_size=*/300,
-      /*beacon_interval_us=*/100000,
-      /*beacon_result_pattern=*/{},
-      /*receive_result=*/{},
-  }) {}
-};
+TEST_F(RadioTransportNormalMaxSubFrameSizeTest, BuildBeginFrame) {
+  Link::Frame frame = transport_.BuildBeginEndFrame(9001,
+      RadioTransport::FrameType::BEGIN, /*ack=*/false);
+  EXPECT_EQ(frame.address, 9001);
+  ASSERT_EQ(frame.payload.size(), link_.GetMaxPayloadSize());
+  EXPECT_EQ(frame.payload[0],
+      static_cast<char>(RadioTransport::FrameType::BEGIN));
+}
 
-TEST_F(RadioTransportGetMaxSubFrameSizeJumboTest, GetMaxSubFrameSizeJumbo) {
-  EXPECT_EQ(transport_.GetMaxSubFrameSize(), 520200);
+TEST_F(RadioTransportNormalMaxSubFrameSizeTest, BuildEndFrame) {
+  Link::Frame frame = transport_.BuildBeginEndFrame(9002,
+      RadioTransport::FrameType::END, /*ack=*/true);
+  EXPECT_EQ(frame.address, 9002);
+  ASSERT_EQ(frame.payload.size(), link_.GetMaxPayloadSize());
+  EXPECT_EQ(frame.payload[0],
+      static_cast<char>(RadioTransport::FrameType::END) | (1 << 2));
+}
+
+TEST_F(RadioTransportNormalMaxSubFrameSizeTest, BuildPayloadFrame) {
+  Link::Frame frame = transport_.BuildPayloadFrame(9003,
+      /*sequence_id=*/10, std::string(30, '\xaa'));
+  EXPECT_EQ(frame.address, 9003);
+  ASSERT_EQ(frame.payload.size(), link_.GetMaxPayloadSize());
+  EXPECT_EQ(frame.payload[0], 0x00);
+  EXPECT_EQ(frame.payload[1], 10);
+  EXPECT_EQ(frame.payload.substr(2), std::string(30, '\xaa'));
 }
 
 /* Send Test ******************************************************************/

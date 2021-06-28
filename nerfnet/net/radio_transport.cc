@@ -47,11 +47,19 @@ RadioTransport::RadioTransport(Link* link, EventHandler* event_handler,
       transport_running_(true),
       beacon_thread_(&RadioTransport::BeaconThread, this),
       receive_thread_(&RadioTransport::ReceiveThread, this) {
-  constexpr size_t kMinimumPayloadSize = 5;
+  // The minimum payload size is 2 bytes of header plus 1 byte of content making
+  // the minimum 3 bytes. The sequnce ID is encoded as a single byte which makes
+  // the maximum sequence ID 255, which caps the frame size at 257. Enforcing
+  // these limits up front simplifies the implementation of the transport.
+  constexpr size_t kMinimumPayloadSize = 3;
+  constexpr size_t kMaximumPayloadSize = static_cast<size_t>(UINT8_MAX) + 2;
   size_t max_payload_size = link->GetMaxPayloadSize();
-  CHECK(max_payload_size > kMinimumPayloadSize,
+  CHECK(max_payload_size >= kMinimumPayloadSize,
       "Link minimum payload size too small (%zu vs expected %zu)",
       max_payload_size, kMinimumPayloadSize);
+  CHECK(max_payload_size < kMaximumPayloadSize,
+      "Link maximum payload too large (%zu vs max %u)",
+      max_payload_size, kMaximumPayloadSize);
 }
 
 RadioTransport::~RadioTransport() {
@@ -163,8 +171,34 @@ Transport::SendResult RadioTransport::Send(const std::string& frame,
 
 size_t RadioTransport::GetMaxSubFrameSize() const {
   size_t payload_size = link()->GetMaxPayloadSize() - 2;
-  payload_size = std::min(payload_size, static_cast<size_t>(UINT8_MAX));
   return payload_size * 8 * payload_size;
+}
+
+Link::Frame RadioTransport::BuildBeginEndFrame(uint32_t address,
+    FrameType frame_type, bool ack) const {
+  CHECK(frame_type == FrameType::BEGIN || frame_type == FrameType::END,
+      "Frame type must be BEGIN or END");
+
+  Link::Frame frame;
+  frame.address = address;
+  frame.payload = std::string(link()->GetMaxPayloadSize(), '\0');
+  frame.payload[0] = static_cast<uint8_t>(frame_type) | (ack << 2);
+  return frame;
+}
+
+Link::Frame RadioTransport::BuildPayloadFrame(uint32_t address,
+    uint8_t sequence_id, const std::string& payload) const {
+  const size_t expected_payload_size = link()->GetMaxPayloadSize() - 2;
+  CHECK(payload.size() == expected_payload_size,
+      "Invalid payload frame size (%zu vs expected %zu)",
+      payload.size(), expected_payload_size);
+
+  Link::Frame frame;
+  frame.address = address;
+  frame.payload = std::string(2, '\0');
+  frame.payload[1] = sequence_id;
+  frame.payload += payload;
+  return frame;
 }
 
 void RadioTransport::BeaconThread() {
