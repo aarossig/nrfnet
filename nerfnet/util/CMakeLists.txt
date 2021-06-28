@@ -23,6 +23,25 @@ target_link_libraries(crc16_test PUBLIC
 
 gtest_discover_tests(crc16_test WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 
+# encode decode ################################################################
+
+add_library(util_encode_decode
+  encode_decode.cc
+)
+
+add_executable(encode_decode_test
+  encode_decode_test.cc
+)
+
+target_link_libraries(encode_decode_test PUBLIC
+  gtest_main
+  gtest
+  pthread
+  util_encode_decode
+)
+
+gtest_discover_tests(encode_decode_test WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+
 # file #########################################################################
 
 add_library(util_file
