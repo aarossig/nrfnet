@@ -21,6 +21,7 @@
 #include <climits>
 #include <condition_variable>
 #include <thread>
+#include <vector>
 
 #include "nerfnet/net/link.h"
 #include "nerfnet/net/transport.h"
@@ -71,6 +72,9 @@ class RadioTransport : public Transport {
   // 2 bytes smaller than the maximum payload size.
   Link::Frame BuildPayloadFrame(uint32_t address,
       uint8_t sequence_id, const std::string& payload) const;
+
+  // Builds the sub frames for a given to frame.
+  std::vector<std::string> BuildSubFrames(const std::string& frame);
 
   /**** End visible for testing. */
 

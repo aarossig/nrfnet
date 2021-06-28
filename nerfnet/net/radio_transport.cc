@@ -19,6 +19,7 @@
 #include <map>
 #include <set>
 
+#include "nerfnet/util/encode_decode.h"
 #include "nerfnet/util/log.h"
 #include "nerfnet/util/time.h"
 
@@ -199,6 +200,30 @@ Link::Frame RadioTransport::BuildPayloadFrame(uint32_t address,
   frame.payload[1] = sequence_id;
   frame.payload += payload;
   return frame;
+}
+
+std::vector<std::string> RadioTransport::BuildSubFrames(
+    const std::string& frame) {
+  // The maximum size of a sub frame is equal to the maximum sub frame minus
+  // space for a 4 byte length + 4 byte offset + 4 byte total length.
+  const size_t max_sub_frame_payload_length = GetMaxSubFrameSize() - 12;
+
+  std::vector<std::string> sub_frames;
+  for (size_t sub_frame_offset = 0;
+       sub_frame_offset < frame.size();
+       sub_frame_offset+= max_sub_frame_payload_length) {
+    size_t sub_frame_size = std::min(max_sub_frame_payload_length,
+        frame.size() - sub_frame_offset);
+
+    std::string sub_frame;
+    sub_frame += EncodeValue(sub_frame_size);
+    sub_frame += EncodeValue(sub_frame_offset);
+    sub_frame += EncodeValue(frame.size());
+    sub_frame += frame.substr(sub_frame_offset, sub_frame_size);
+    sub_frames.push_back(sub_frame);
+  }
+
+  return sub_frames;
 }
 
 void RadioTransport::BeaconThread() {

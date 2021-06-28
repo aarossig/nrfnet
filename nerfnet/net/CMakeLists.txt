@@ -88,6 +88,7 @@ target_link_libraries(radio_transport_test PUBLIC
   gtest
   mock_link
   radio_transport
+  util_encode_decode
 )
 
 gtest_discover_tests(radio_transport_test)

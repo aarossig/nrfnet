@@ -18,8 +18,7 @@
 
 #include "nerfnet/net/mock_link.h"
 #include "nerfnet/net/radio_transport.h"
-
-#include "nerfnet/util/log.h"
+#include "nerfnet/util/encode_decode.h"
 
 namespace nerfnet {
 namespace {
@@ -104,11 +103,11 @@ TEST_F(RadioTransportBeaconTest, Beacon) {
   EXPECT_EQ(beacon_count_, 1);
 }
 
-/* NormalMaxSubFrameSize Tests ************************************************/
+/* Frame Generation Tests *****************************************************/
 
-class RadioTransportNormalMaxSubFrameSizeTest : public RadioTransportTest {
+class RadioTransportFrameGenerationTest : public RadioTransportTest {
  protected:
-  RadioTransportNormalMaxSubFrameSizeTest() : RadioTransportTest({
+  RadioTransportFrameGenerationTest() : RadioTransportTest({
       /*mock_time_us=*/0,
       /*max_payload_size=*/32,
       /*beacon_interval_us=*/100000,
@@ -117,11 +116,11 @@ class RadioTransportNormalMaxSubFrameSizeTest : public RadioTransportTest {
   }) {}
 };
 
-TEST_F(RadioTransportNormalMaxSubFrameSizeTest, GetMaxSubFrameSize) {
+TEST_F(RadioTransportFrameGenerationTest, GetMaxSubFrameSize) {
   EXPECT_EQ(transport_.GetMaxSubFrameSize(), 7200);
 }
 
-TEST_F(RadioTransportNormalMaxSubFrameSizeTest, BuildBeginFrame) {
+TEST_F(RadioTransportFrameGenerationTest, BuildBeginFrame) {
   Link::Frame frame = transport_.BuildBeginEndFrame(9001,
       RadioTransport::FrameType::BEGIN, /*ack=*/false);
   EXPECT_EQ(frame.address, 9001);
@@ -130,7 +129,7 @@ TEST_F(RadioTransportNormalMaxSubFrameSizeTest, BuildBeginFrame) {
       static_cast<char>(RadioTransport::FrameType::BEGIN));
 }
 
-TEST_F(RadioTransportNormalMaxSubFrameSizeTest, BuildEndFrame) {
+TEST_F(RadioTransportFrameGenerationTest, BuildEndFrame) {
   Link::Frame frame = transport_.BuildBeginEndFrame(9002,
       RadioTransport::FrameType::END, /*ack=*/true);
   EXPECT_EQ(frame.address, 9002);
@@ -139,7 +138,7 @@ TEST_F(RadioTransportNormalMaxSubFrameSizeTest, BuildEndFrame) {
       static_cast<char>(RadioTransport::FrameType::END) | (1 << 2));
 }
 
-TEST_F(RadioTransportNormalMaxSubFrameSizeTest, BuildPayloadFrame) {
+TEST_F(RadioTransportFrameGenerationTest, BuildPayloadFrame) {
   Link::Frame frame = transport_.BuildPayloadFrame(9003,
       /*sequence_id=*/10, std::string(30, '\xaa'));
   EXPECT_EQ(frame.address, 9003);
@@ -147,6 +146,45 @@ TEST_F(RadioTransportNormalMaxSubFrameSizeTest, BuildPayloadFrame) {
   EXPECT_EQ(frame.payload[0], 0x00);
   EXPECT_EQ(frame.payload[1], 10);
   EXPECT_EQ(frame.payload.substr(2), std::string(30, '\xaa'));
+}
+
+TEST_F(RadioTransportFrameGenerationTest, BuildSubFramesSingle) {
+  std::vector<std::string> sub_frames = transport_.BuildSubFrames(
+      std::string(16, '\xaa'));
+  EXPECT_EQ(sub_frames.size(), 1);
+  EXPECT_EQ(DecodeValue(
+        static_cast<std::string_view>(sub_frames[0]).substr(0)), 16);
+  EXPECT_EQ(DecodeValue(
+        static_cast<std::string_view>(sub_frames[0]).substr(4)), 0);
+  EXPECT_EQ(DecodeValue(
+        static_cast<std::string_view>(sub_frames[0]).substr(8)), 16);
+  EXPECT_EQ(sub_frames[0].substr(12), std::string(16, '\xaa'));
+}
+
+TEST_F(RadioTransportFrameGenerationTest, BuildSubFramesMulti) {
+  std::vector<std::string> sub_frames = transport_.BuildSubFrames(
+      std::string(8192, '\xbb'));
+  EXPECT_EQ(sub_frames.size(), 2);
+
+  // Check the first frame.
+  ASSERT_EQ(sub_frames[0].size(), 7200);
+  EXPECT_EQ(DecodeValue(
+        static_cast<std::string_view>(sub_frames[0]).substr(0)), 7188);
+  EXPECT_EQ(DecodeValue(
+        static_cast<std::string_view>(sub_frames[0]).substr(4)), 0);
+  EXPECT_EQ(DecodeValue(
+        static_cast<std::string_view>(sub_frames[0]).substr(8)), 8192);
+  EXPECT_EQ(sub_frames[0].substr(12), std::string(7188, '\xbb'));
+
+  // Check the second frame.
+  ASSERT_EQ(sub_frames[1].size(), 1016);
+  EXPECT_EQ(DecodeValue(
+        static_cast<std::string_view>(sub_frames[1]).substr(0)), 1004);
+  EXPECT_EQ(DecodeValue(
+        static_cast<std::string_view>(sub_frames[1]).substr(4)), 7188);
+  EXPECT_EQ(DecodeValue(
+        static_cast<std::string_view>(sub_frames[1]).substr(8)), 8192);
+  EXPECT_EQ(sub_frames[1].substr(12), std::string(1004, '\xbb'));
 }
 
 /* Send Test ******************************************************************/
