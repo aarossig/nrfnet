@@ -93,3 +93,25 @@ target_link_libraries(radio_transport_test PUBLIC
 )
 
 gtest_discover_tests(radio_transport_test)
+
+# radio transport receiver #####################################################
+
+add_library(radio_transport_receiver
+  radio_transport_receiver.cc
+)
+
+target_link_libraries(radio_transport_receiver PUBLIC
+  util
+)
+
+add_executable(radio_transport_receiver_test
+  radio_transport_receiver_test.cc
+)
+
+target_link_libraries(radio_transport_receiver_test PUBLIC
+  gtest_main
+  gtest
+  pthread
+)
+
+gtest_discover_tests(radio_transport_receiver_test)
