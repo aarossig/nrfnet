@@ -26,10 +26,11 @@
 namespace nerfnet {
 namespace {
 
-// Start/finish packet flags and mask.
-constexpr uint8_t kFlagStart = 0x01;
-constexpr uint8_t kFlagFinish = 0x02;
-constexpr uint8_t kMaskStartFinish = 0x03;
+// The mask for the frame type.
+constexpr uint8_t kMaskFrameType = 0x03;
+
+// The mask for the ack bit.
+constexpr uint8_t kMaskAck = 0x04;
 
 // The maximum amount of time to await a reply when sending/receiving a frame.
 constexpr uint64_t kReceiveTimeoutUs = 10000;
@@ -71,97 +72,59 @@ RadioTransport::~RadioTransport() {
 
 Transport::SendResult RadioTransport::Send(const std::string& frame,
     uint32_t address, uint64_t timeout_us) {
+  // TODO(aarossig): Append a checksum.
+
   const uint64_t start_time_us = TimeNowUs();
+  const std::vector<std::string> sub_frames = BuildSubFrames(frame);
+  for (const auto& sub_frame : sub_frames) {
+    // Send BEGIN frame.
+    SendResult send_result = SendReceiveBeginEndFrame(FrameType::BEGIN, address,
+        start_time_us, timeout_us);
+    if (send_result != SendResult::SUCCESS) {
+      return send_result;
+    }
 
-  size_t max_payload_size = link()->GetMaxPayloadSize();
-  if (max_payload_size <= 2 || max_payload_size > INT_MAX) {
-    return SendResult::TOO_LARGE;
-  }
+    // Transmit frames that have not been acknowledged until all frames are
+    // received.
+    const size_t payload_chunk_size = link()->GetMaxPayloadSize() - 2;
+    const uint8_t max_sequence_id = (sub_frame.size() / payload_chunk_size) + 1;
+    std::set<uint8_t> acknowledged_ids;
+    while (acknowledged_ids.size() < max_sequence_id) {
+      uint8_t sequence_id = 0;
+      for (size_t offset = 0; offset < sub_frame.size();
+           offset += payload_chunk_size) {
+        if (acknowledged_ids.find(sequence_id) == acknowledged_ids.end()) {
+          // The sequence ID has not been transmitted yet, so send it.
+          Link::Frame frame = BuildPayloadFrame(address, sequence_id,
+              sub_frame.substr(offset, payload_chunk_size));
 
-  // Prepend the length of the frame.
-  std::string wire_frame;
-  wire_frame.push_back(static_cast<uint8_t>(frame.size()));
-  wire_frame.push_back(static_cast<uint8_t>(frame.size() >> 8));
-  wire_frame += frame;
+          // Transmit the frame and log errors as warnings. The receiving radio
+          // will fail to acknowledge any missing sequence IDs and this radio
+          // will retry transmission.
+          Link::TransmitResult transmit_result = link()->Transmit(frame);
+          if (transmit_result != Link::TransmitResult::SUCCESS) {
+            LOGW("Failed to transmit sequence_id=%u with %u",
+                sequence_id, transmit_result);
+          }
+        }
 
-  size_t max_fragment_size = max_payload_size - 2;
-  size_t max_frame_size = std::min(
-      static_cast<int>(max_fragment_size), UINT8_MAX) * 8 * (max_fragment_size);
-  if (wire_frame.size() > max_frame_size) {
-    return SendResult::TOO_LARGE;
-  }
-
-  Link::Frame transmit_frame = {};
-  transmit_frame.address = address;
-
-  std::unique_lock<std::mutex> lock(link_mutex_);
-  std::set<uint8_t> acknowledged_seq_ids;
-  uint8_t max_seq_id = (wire_frame.size() / max_fragment_size) + 1;
-  while (acknowledged_seq_ids.size() != max_seq_id) {
-    bool receive_timeout = false;
-    for (uint8_t seq_id = 0; seq_id < max_seq_id && !receive_timeout; seq_id++) {
-      if (acknowledged_seq_ids.find(seq_id) != acknowledged_seq_ids.end()) {
-        continue;
+        sequence_id++;
       }
 
-      // Build the frame to send over the link.
-      const size_t payload_offset = seq_id * max_fragment_size;
-      uint8_t flags = seq_id == 0 ? kFlagStart : 0;
-      flags |= seq_id == max_seq_id - 1 ? kFlagFinish : 0;
-      transmit_frame.payload = BuildPayload(flags, seq_id,
-          wire_frame.substr(payload_offset, max_fragment_size));
-      transmit_frame.payload.resize(max_payload_size, '\0');
-
-      // Send the frame.
-      Link::TransmitResult transmit_result = link()->Transmit(transmit_frame);
-      if (transmit_result != Link::TransmitResult::SUCCESS) {
-        LOGE("Failed to transmit frame: %d", transmit_result);
-        return SendResult::TRANSMIT_ERROR;
+      // Transmit END frame.
+      Link::Frame ack_frame;
+      send_result = SendReceiveBeginEndFrame(FrameType::END, address,
+          start_time_us, timeout_us, &ack_frame);
+      if (send_result != SendResult::SUCCESS) {
+        return send_result;
       }
-   
-      // Listen for acks if needed.
-      if ((flags & kMaskStartFinish) > 0) {
-        Link::Frame receive_frame = {};
-        Link::ReceiveResult receive_result;
 
-        uint64_t receive_time_us = TimeNowUs();
-        do {
-          receive_result = link()->Receive(&receive_frame);
-          if ((TimeNowUs() - start_time_us) > timeout_us) {
-            return SendResult::TIMEOUT;
-          } else if ((TimeNowUs() - receive_time_us) > kReceiveTimeoutUs) {
-            receive_timeout = true;
-            break;
-          }
-        } while (receive_result == Link::ReceiveResult::NOT_READY);
-    
-        if (!receive_timeout) {
-          if (receive_result != Link::ReceiveResult::SUCCESS) {
-            LOGE("Failed to receive frame: %d", receive_result);
-            return SendResult::RECEIVE_ERROR;
-          } else if (receive_frame.payload.empty()) {
-            event_handler()->OnBeaconReceived(receive_frame.address);
-          } else if (receive_frame.payload.size() != max_payload_size) {
-            LOGW("Frame length mismatch (%zu vs expected %zu)",
-                receive_frame.payload.size(), max_payload_size);
-          } else if ((receive_frame.payload[0] & kMaskStartFinish) != flags) {
-            LOGW("Invalid flags received (0x%02x vs expected 0x%02x)",
-                receive_frame.payload[0] & kMaskStartFinish, flags);
-          } else {
-            uint8_t check_seq_id = 0;
-            for (size_t i = 2;
-                 i < receive_frame.payload.size() && check_seq_id < max_seq_id;
-                 i++) {
-              for (size_t bit_index = 0;
-                   bit_index < 8 && check_seq_id < max_seq_id; bit_index++) {
-                if (receive_frame.payload[i] & (1 << bit_index)) {
-                  acknowledged_seq_ids.insert(check_seq_id);
-                }
-
-                check_seq_id++;
-              }
-            }
-          }
+      // Parse received acks and insert into the set of acknowledged IDs.
+      for (sequence_id = 0; sequence_id < max_sequence_id; sequence_id++) {
+        uint8_t byte_index = sequence_id / 8;
+        uint8_t bit_index = sequence_id % 8;
+        if ((ack_frame.payload[byte_index] & (1 << bit_index)) > 0) {
+          acknowledged_ids.insert(sequence_id);
         }
       }
     }
@@ -216,9 +179,9 @@ std::vector<std::string> RadioTransport::BuildSubFrames(
         frame.size() - sub_frame_offset);
 
     std::string sub_frame;
-    sub_frame += EncodeValue(sub_frame_size);
-    sub_frame += EncodeValue(sub_frame_offset);
-    sub_frame += EncodeValue(frame.size());
+    sub_frame += EncodeU32(sub_frame_size);
+    sub_frame += EncodeU32(sub_frame_offset);
+    sub_frame += EncodeU32(frame.size());
     sub_frame += frame.substr(sub_frame_offset, sub_frame_size);
     sub_frames.push_back(sub_frame);
   }
@@ -263,92 +226,75 @@ void RadioTransport::ReceiveThread() {
       } else if (frame.payload.size() != link()->GetMaxPayloadSize()) {
         LOGW("Received frame length mismatch (%zu vs expected %zu",
             frame.payload.size(), link()->GetMaxPayloadSize());
-      } else if ((frame.payload[0] & kFlagStart) != kFlagStart) {
-        LOGW("Received non-start frame from %u", frame.address);
       } else {
-        bool frame_dispatched = false;
-        uint32_t address = frame.address;
-        std::map<uint8_t, std::string> received_frames;
-        Link::ReceiveResult receive_result = Link::ReceiveResult::SUCCESS;
-
-        while (transport_running_ && !frame_dispatched
-               && receive_result == Link::ReceiveResult::SUCCESS) {
-          if (frame.payload.empty()) {
-            event_handler()->OnBeaconReceived(frame.address);
-          } else if (frame.address != address) {
-            LOGW("Ignoring packet from %u", frame.address);
-          } else {
-            uint8_t flags = frame.payload[0];
-            // TODO(aarossig): Validate this seq_id.
-            uint8_t seq_id = frame.payload[1];
-            std::string payload = frame.payload.substr(2);
-
-            if ((flags & kFlagFinish) == kFlagFinish) {
-              bool packet_received = true;
-              for (uint16_t i = 0; i <= seq_id; i++) {
-                if (received_frames.find(i) == received_frames.end()) {
-                  packet_received = false;
-                  break;
-                }
-              }
-
-              if (packet_received) {
-                size_t length = received_frames[0][0]
-                    | (static_cast<uint16_t>(received_frames[0][1]) << 8);
-                std::string payload = received_frames[0].substr(2);
-                for (uint16_t i = 1; i <= seq_id; i++) {
-                  payload += received_frames[i];
-                }
-
-                // TODO(aarossig): Validate this length input.
-                payload = payload.substr(2, length);
-                event_handler()->OnFrameReceived(address, payload);
-                frame_dispatched = true;
-              }
-            }
-
-            if ((flags & kMaskStartFinish) > 0) {
-              std::string ack_mask(link()->GetMaxPayloadSize() - 2, '\0');
-              for (const auto& received_frame : received_frames) {
-                uint8_t seq_id = received_frame.first;
-                uint8_t byte = seq_id / 8;
-                uint8_t bit = seq_id % 8;
-                ack_mask[byte] |= (1 << bit);
-              }
-
-              Link::Frame response;
-              response.address = address;
-              response.payload = BuildPayload(
-                  flags & kMaskStartFinish, 0, ack_mask);
-              link()->Transmit(response);
-            }
-
-          }
-
-          // Receive the next frame.
-          uint64_t start_receive_time_us = TimeNowUs();
-          Link::ReceiveResult receive_result = Link::ReceiveResult::NOT_READY;
-          do {
-            if ((TimeNowUs() - start_receive_time_us) > kReceiveTimeoutUs) {
-              receive_result = Link::ReceiveResult::NOT_READY;
-              break;
-            }
-
-            receive_result = link()->Receive(&frame);
-          } while (receive_result == Link::ReceiveResult::NOT_READY);
-        }
+        HandlePayloadFrame(frame);
       }
     }
   }
 }
 
-std::string RadioTransport::BuildPayload(uint8_t flags, uint8_t sequence_id,
-    const std::string& contents) {
-  std::string payload;
-  payload.push_back(flags);
-  payload.push_back(sequence_id);
-  payload += contents;
-  return payload;
+Transport::SendResult RadioTransport::SendReceiveBeginEndFrame(
+    FrameType frame_type, uint32_t address,
+    uint64_t start_time_us, uint64_t timeout_us,
+    Link::Frame* out_frame) {
+  while (true) {
+    if ((TimeNowUs() - start_time_us) > timeout_us) {
+      return SendResult::TIMEOUT;
+    }
+
+    Link::Frame frame = BuildBeginEndFrame(address, frame_type, /*ack=*/false);
+    Link::TransmitResult transmit_result = link()->Transmit(frame);
+    if (transmit_result != Link::TransmitResult::SUCCESS) {
+      LOGE("Failed to transmit frame: %u", transmit_result);
+      continue;
+    }
+
+    uint64_t receive_start_time_us = TimeNowUs();
+    Link::ReceiveResult receive_result = Link::ReceiveResult::NOT_READY;
+    while (receive_result != Link::ReceiveResult::SUCCESS) {
+      if ((TimeNowUs() - receive_start_time_us) > kReceiveTimeoutUs) {
+        break;
+      }
+
+      Link::ReceiveResult receive_result = link()->Receive(&frame);
+      if (receive_result == Link::ReceiveResult::SUCCESS) {
+        if (frame.payload.empty()) {
+          event_handler()->OnBeaconReceived(frame.address);
+        } else if (frame.address != address) {
+          LOGW("Ignoring frame from %u while beginning transmission",
+              frame.address);
+        } else if (frame.payload.size() != link()->GetMaxPayloadSize()) {
+          LOGW("Received frame from %u with frame size %zu vs expected %zu",
+              frame.address, frame.payload.size(),
+              link()->GetMaxPayloadSize());
+        } else if (frame.payload[0] & kMaskFrameType
+            != static_cast<uint8_t>(FrameType::BEGIN)) {
+          LOGW("Received frame from %u with unexpected frame type",
+              frame.address);
+        } else if (frame.payload[0] & kMaskAck == 0) {
+          LOGW("Received frame from %u missing expected ack", frame.address);
+        } else {
+          break;
+        }
+
+        receive_result = Link::ReceiveResult::NOT_READY;
+      }
+    }
+
+    if (receive_result == Link::ReceiveResult::SUCCESS) {
+      if (out_frame != nullptr) {
+        *out_frame = frame;
+      }
+
+      break;
+    }
+  }
+
+  return SendResult::SUCCESS;
+}
+
+void RadioTransport::HandlePayloadFrame(const Link::Frame& frame) {
+  // TODO(aarossig): Handle incoming frames.
 }
 
 }  // namespace nerfnet

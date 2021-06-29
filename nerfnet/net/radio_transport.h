@@ -102,10 +102,13 @@ class RadioTransport : public Transport {
   // for incoming packets and beacons to dispatch to the event handler.
   void ReceiveThread();
 
+  // Sends and receives an ack for a begin/end frame.
+  SendResult SendReceiveBeginEndFrame(FrameType frame_type, uint32_t address,
+      uint64_t start_time_us, uint64_t timeout_us,
+      Link::Frame* out_frame = nullptr);
 
-  // Builds a payload given a verb, sequence id and contents.
-  std::string BuildPayload(uint8_t flags, uint8_t sequence_id,
-      const std::string& contents);
+  // Handles a received frame with a payload.
+  void HandlePayloadFrame(const Link::Frame& frame);
 };
 
 }  // namespace nerfnet

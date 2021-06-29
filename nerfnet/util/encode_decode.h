@@ -22,11 +22,11 @@
 namespace nerfnet {
 
 // Encodes a uint32_t value as a little-endian string.
-std::string EncodeValue(uint32_t value);
+std::string EncodeU32(uint32_t value);
 
 // Decodes a uint32_t value from a little-endian string. The string must be at
 // least 4 bytes long.
-uint32_t DecodeValue(const std::string_view& str);
+uint32_t DecodeU32(const std::string_view& str);
 
 }  // namespace nerfnet
 

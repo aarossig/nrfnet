@@ -59,12 +59,6 @@ class Transport : public NonCopyable {
     // The frame was sent successfully.
     SUCCESS,
 
-    // The frame could not be sent because it is invalid.
-    INVALID_FRAME,
-
-    // The frame could not be sent because it is too large.
-    TOO_LARGE,
-
     // The frame transmission deadline was exceeded.
     TIMEOUT,
 

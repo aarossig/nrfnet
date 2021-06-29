@@ -22,12 +22,12 @@
 namespace nerfnet {
 namespace {
 
-TEST(EncodeDecodeTest, EncodeUnsigned32BitInteger) {
-  EXPECT_EQ(EncodeValue(0xdeadbeef), "\xef\xbe\xad\xde");
+TEST(EncodeDecodeTest, EncodeU32) {
+  EXPECT_EQ(EncodeU32(0xdeadbeef), "\xef\xbe\xad\xde");
 }
 
-TEST(EncodeDecodeTest, DecodeUnsigned32BitInteger) {
-  EXPECT_EQ(DecodeValue("\xef\xbe\xad\xde"), 0xdeadbeef);
+TEST(EncodeDecodeTest, Decode32) {
+  EXPECT_EQ(DecodeU32("\xef\xbe\xad\xde"), 0xdeadbeef);
 }
 
 }  // anonymous namespace

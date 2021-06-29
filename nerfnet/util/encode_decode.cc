@@ -28,7 +28,7 @@
 
 namespace nerfnet {
 
-std::string EncodeValue(uint32_t value) {
+std::string EncodeU32(uint32_t value) {
   std::string encoded_value;
   encoded_value.push_back(static_cast<uint8_t>(value));
   encoded_value.push_back(static_cast<uint8_t>(value >> 8));
@@ -37,7 +37,7 @@ std::string EncodeValue(uint32_t value) {
   return encoded_value;
 }
 
-uint32_t DecodeValue(const std::string_view& str) {
+uint32_t DecodeU32(const std::string_view& str) {
   CHECK(str.size() >= sizeof(uint32_t),
       "Unable to decode string with size %zu vs expected %zu",
       str.size(), sizeof(uint32_t));

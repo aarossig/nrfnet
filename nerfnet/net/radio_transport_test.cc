@@ -152,11 +152,11 @@ TEST_F(RadioTransportFrameGenerationTest, BuildSubFramesSingle) {
   std::vector<std::string> sub_frames = transport_.BuildSubFrames(
       std::string(16, '\xaa'));
   EXPECT_EQ(sub_frames.size(), 1);
-  EXPECT_EQ(DecodeValue(
+  EXPECT_EQ(DecodeU32(
         static_cast<std::string_view>(sub_frames[0]).substr(0)), 16);
-  EXPECT_EQ(DecodeValue(
+  EXPECT_EQ(DecodeU32(
         static_cast<std::string_view>(sub_frames[0]).substr(4)), 0);
-  EXPECT_EQ(DecodeValue(
+  EXPECT_EQ(DecodeU32(
         static_cast<std::string_view>(sub_frames[0]).substr(8)), 16);
   EXPECT_EQ(sub_frames[0].substr(12), std::string(16, '\xaa'));
 }
@@ -168,21 +168,21 @@ TEST_F(RadioTransportFrameGenerationTest, BuildSubFramesMulti) {
 
   // Check the first frame.
   ASSERT_EQ(sub_frames[0].size(), 7200);
-  EXPECT_EQ(DecodeValue(
+  EXPECT_EQ(DecodeU32(
         static_cast<std::string_view>(sub_frames[0]).substr(0)), 7188);
-  EXPECT_EQ(DecodeValue(
+  EXPECT_EQ(DecodeU32(
         static_cast<std::string_view>(sub_frames[0]).substr(4)), 0);
-  EXPECT_EQ(DecodeValue(
+  EXPECT_EQ(DecodeU32(
         static_cast<std::string_view>(sub_frames[0]).substr(8)), 8192);
   EXPECT_EQ(sub_frames[0].substr(12), std::string(7188, '\xbb'));
 
   // Check the second frame.
   ASSERT_EQ(sub_frames[1].size(), 1016);
-  EXPECT_EQ(DecodeValue(
+  EXPECT_EQ(DecodeU32(
         static_cast<std::string_view>(sub_frames[1]).substr(0)), 1004);
-  EXPECT_EQ(DecodeValue(
+  EXPECT_EQ(DecodeU32(
         static_cast<std::string_view>(sub_frames[1]).substr(4)), 7188);
-  EXPECT_EQ(DecodeValue(
+  EXPECT_EQ(DecodeU32(
         static_cast<std::string_view>(sub_frames[1]).substr(8)), 8192);
   EXPECT_EQ(sub_frames[1].substr(12), std::string(1004, '\xbb'));
 }
@@ -243,56 +243,6 @@ TEST_F(RadioTransportSendTest, Send) {
       /*address=*/2000, /*timeout_us=*/10000), Transport::SendResult::SUCCESS);
   link_.WaitForComplete();
   std::unique_lock<std::mutex> lock(mutex_);
-}
-#endif
-
-/* Send Small Packet Test *****************************************************/
-
-class RadioTransportSendSmallPacketTest : public RadioTransportTest {
- protected:
-  RadioTransportSendSmallPacketTest() : RadioTransportTest({
-      /*mock_time_us=*/0,
-      /*max_payload_size=*/32,
-      /*beacon_interval_us=*/100000,
-      /*beacon_result_pattern=*/{
-          Link::TransmitResult::SUCCESS,
-      },
-      /*receive_result=*/{
-          {
-              Link::ReceiveResult::SUCCESS, {
-                  /*address=*/2000, /*payload=*/{
-                    0x03, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
-                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                  },
-              },
-          }, {
-              Link::ReceiveResult::SUCCESS, {
-                  /*address=*/2000, /*payload=*/{},
-              },
-          },
-      },
-      /*transmit_result=*/{
-          {
-              Link::TransmitResult::SUCCESS, {
-                  /*address=*/2000, /*payload=*/{
-                      0x03, 0x00, 0x04, 0x00, 0x01, 0x02, 0x03, 0x04,
-                      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                  },
-              },
-          },
-      },
-  }) {}
-};
-
-#if 0
-TEST_F(RadioTransportSendSmallPacketTest, SendSmallPacket) {
-  EXPECT_EQ(transport_.Send("\x01\x02\x03\x04",
-      /*address=*/2000, /*timeout_us=*/10000), Transport::SendResult::SUCCESS);
-  link_.WaitForComplete();
 }
 #endif
 
