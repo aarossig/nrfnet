@@ -16,9 +16,9 @@
 
 #include "nerfnet/net/radio_transport.h"
 
-#include <map>
 #include <set>
 
+#include "nerfnet/util/crc16.h"
 #include "nerfnet/util/encode_decode.h"
 #include "nerfnet/util/log.h"
 #include "nerfnet/util/time.h"
@@ -72,10 +72,9 @@ RadioTransport::~RadioTransport() {
 
 Transport::SendResult RadioTransport::Send(const std::string& frame,
     uint32_t address, uint64_t timeout_us) {
-  // TODO(aarossig): Append a checksum.
-
   const uint64_t start_time_us = TimeNowUs();
-  const std::vector<std::string> sub_frames = BuildSubFrames(frame);
+  const std::string air_frame = frame + EncodeU16(GenerateCrc16(frame));
+  const std::vector<std::string> sub_frames = BuildSubFrames(air_frame);
   for (const auto& sub_frame : sub_frames) {
     // Send BEGIN frame.
     SendResult send_result = SendReceiveBeginEndFrame(FrameType::BEGIN, address,
@@ -84,8 +83,7 @@ Transport::SendResult RadioTransport::Send(const std::string& frame,
       return send_result;
     }
 
-    // Transmit frames that have not been acknowledged until all frames are
-    // received.
+    // Transmit all frames that have not been acknowledged.
     const size_t payload_chunk_size = link()->GetMaxPayloadSize() - 2;
     const uint8_t max_sequence_id = (sub_frame.size() / payload_chunk_size) + 1;
     std::set<uint8_t> acknowledged_ids;
@@ -212,8 +210,7 @@ void RadioTransport::BeaconThread() {
 
 void RadioTransport::ReceiveThread() {
   while (transport_running_) {
-    // TODO(aarossig): Rate limit this thread based on receive activity.
-    SleepUs(10000);
+    bool frame_received = false;
 
     Link::Frame frame;
     std::unique_lock<std::mutex> lock(link_mutex_);
@@ -221,6 +218,7 @@ void RadioTransport::ReceiveThread() {
     if (receive_result != Link::ReceiveResult::NOT_READY) {
       LOGW("Failed to receive frame: %u", receive_result);
     } else if (receive_result == Link::ReceiveResult::SUCCESS) {
+      frame_received = true;
       if (frame.payload.empty()) {
         event_handler()->OnBeaconReceived(frame.address);
       } else if (frame.payload.size() != link()->GetMaxPayloadSize()) {
@@ -229,6 +227,10 @@ void RadioTransport::ReceiveThread() {
       } else {
         HandlePayloadFrame(frame);
       }
+    }
+
+    if (!frame_received) {
+      SleepUs(1000);
     }
   }
 }

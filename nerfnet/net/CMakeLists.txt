@@ -77,6 +77,7 @@ add_library(radio_transport
 target_link_libraries(radio_transport PUBLIC
   transport
   util
+  util_crc16
 )
 
 add_executable(radio_transport_test
