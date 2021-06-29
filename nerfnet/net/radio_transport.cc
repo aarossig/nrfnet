@@ -32,9 +32,6 @@ constexpr uint8_t kMaskFrameType = 0x03;
 // The mask for the ack bit.
 constexpr uint8_t kMaskAck = 0x04;
 
-// The maximum amount of time to await a reply when sending/receiving a frame.
-constexpr uint64_t kReceiveTimeoutUs = 10000;
-
 }  // anonymous namespace
 
 const RadioTransport::Config RadioTransport::kDefaultConfig = {
@@ -46,6 +43,7 @@ RadioTransport::RadioTransport(Link* link, EventHandler* event_handler,
     : Transport(link, event_handler),
       config_(config),
       last_beacon_time_us_(0),
+      receiver_(&clock_),
       transport_running_(true),
       beacon_thread_(&RadioTransport::BeaconThread, this),
       receive_thread_(&RadioTransport::ReceiveThread, this) {
@@ -296,7 +294,16 @@ Transport::SendResult RadioTransport::SendReceiveBeginEndFrame(
 }
 
 void RadioTransport::HandlePayloadFrame(const Link::Frame& frame) {
-  // TODO(aarossig): Handle incoming frames.
+  std::optional<std::string> payload = receiver_.HandleFrame(frame);
+  if (payload.has_value()) {
+    uint16_t crc = GenerateCrc16(payload->substr(0, payload->size() - 2));
+    uint16_t decoded_crc = DecodeU16(payload->substr(payload->size() - 2));
+    if (crc != decoded_crc) {
+      LOGW("CRC16 mismatch in payload: 0x%04x vs 0x%04x", crc, decoded_crc);
+    } else {
+      event_handler()->OnFrameReceived(frame.address, *payload);
+    }
+  }
 }
 
 }  // namespace nerfnet

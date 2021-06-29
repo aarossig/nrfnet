@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "nerfnet/net/link.h"
+#include "nerfnet/net/radio_transport_receiver.h"
 #include "nerfnet/net/transport.h"
 
 namespace nerfnet {
@@ -82,8 +83,15 @@ class RadioTransport : public Transport {
   // The config to use for this transport.
   const Config config_;
 
+  // The clock instance to use for this transport.
+  const RealClock clock_;
+
   // The last time that a beacon was transmitted in microseconds.
   uint64_t last_beacon_time_us_;
+
+  // The receiver to use for accepting link frames and producing frames to
+  // dispatch to the event handler.
+  RadioTransportReceiver receiver_;
 
   // The mutex used to guard access to the link.
   std::mutex link_mutex_;

@@ -20,10 +20,14 @@
 #include <map>
 #include <string>
 
+#include "nerfnet/net/link.h"
 #include "nerfnet/util/non_copyable.h"
 #include "nerfnet/util/time.h"
 
 namespace nerfnet {
+
+// The maximum amount of time to await a reply when sending/receiving a frame.
+constexpr uint64_t kReceiveTimeoutUs = 10000;
 
 // A class that accepts multiple link frames and assembles them into one larger
 // payload.
@@ -31,7 +35,10 @@ class RadioTransportReceiver : public NonCopyable {
  public:
   // Setup the radio transport receiver with the clock to use. The clock must
   // have a duration that is at least as long as the lifespan of this object.
-  RadioTransportReceiver(Clock* clock);
+  RadioTransportReceiver(const Clock* clock);
+
+  // Handles a link frame. Returns a full payload if one has been received.
+  std::optional<std::string> HandleFrame(const Link::Frame& frame);
 
  private:
   // The clock to use for receiver timing.

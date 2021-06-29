@@ -18,7 +18,12 @@
 
 namespace nerfnet {
 
-RadioTransportReceiver::RadioTransportReceiver(Clock* clock)
+RadioTransportReceiver::RadioTransportReceiver(const Clock* clock)
     : clock_(clock) {}
+
+std::optional<std::string> RadioTransportReceiver::HandleFrame(
+    const Link::Frame& frame) {
+  return std::nullopt;
+}
 
 }  // namespace nerfnet
