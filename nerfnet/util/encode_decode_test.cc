@@ -26,8 +26,16 @@ TEST(EncodeDecodeTest, EncodeU32) {
   EXPECT_EQ(EncodeU32(0xdeadbeef), "\xef\xbe\xad\xde");
 }
 
+TEST(EncodeDecodeTest, EncodeU16) {
+  EXPECT_EQ(EncodeU16(0xdead), "\xad\xde");
+}
+
 TEST(EncodeDecodeTest, Decode32) {
   EXPECT_EQ(DecodeU32("\xef\xbe\xad\xde"), 0xdeadbeef);
+}
+
+TEST(EncodeDecodeTest, Decode16) {
+  EXPECT_EQ(DecodeU16("\xef\xbe"), 0xbeef);
 }
 
 }  // anonymous namespace
