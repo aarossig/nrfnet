@@ -14,10 +14,26 @@
  * limitations under the License.
  */
 
+#include <gtest/gtest.h>
+
 #include "nerfnet/net/radio_transport_receiver.h"
 
 namespace nerfnet {
 namespace {
+
+// The RadioTransportReceiver test harness.
+class RadioTransportReceiverTest : public ::testing::Test {
+ protected:
+  RadioTransportReceiverTest()
+      : receiver_(&clock_) {}
+
+  MockClock clock_;
+  RadioTransportReceiver receiver_;
+};
+
+TEST_F(RadioTransportReceiverTest, Foo) {
+
+}
 
 }  // namespace
 }  // namespace nerfnet

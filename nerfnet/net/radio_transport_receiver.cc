@@ -18,4 +18,7 @@
 
 namespace nerfnet {
 
+RadioTransportReceiver::RadioTransportReceiver(Clock* clock)
+    : clock_(clock) {}
+
 }  // namespace nerfnet

@@ -113,6 +113,8 @@ target_link_libraries(radio_transport_receiver_test PUBLIC
   gtest_main
   gtest
   pthread
+  radio_transport_receiver
+  util_time
 )
 
 gtest_discover_tests(radio_transport_receiver_test)

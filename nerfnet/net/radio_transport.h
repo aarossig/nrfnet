@@ -20,7 +20,6 @@
 #include <atomic>
 #include <climits>
 #include <condition_variable>
-#include <map>
 #include <thread>
 #include <vector>
 
@@ -85,41 +84,6 @@ class RadioTransport : public Transport {
 
   // The last time that a beacon was transmitted in microseconds.
   uint64_t last_beacon_time_us_;
-
-  // State for the packet that is currently being received.
-  struct ReceiveState {
-    // The address of the node that packets are being accepted from.
-    uint32_t address;
-
-    // Received pieces of the current frame. These are assembled together and
-    // appended to the frame below when all pieces have been received.
-    std::map<uint8_t, std::string> frame_pieces_;
-
-    // Entirely received portions of frames.
-    std::string frame;
-
-    // The timestamp of the last received packet for this frame.
-    uint64_t receive_time_us;
-  };
-
-  // Contains the receive state of the current packet, if receiving one.
-  std::optional<ReceiveState> receive_state_;
-
-  // State for the last packet that was received to allow acknowledging the END
-  // frame in the event that it is lost.
-  struct LastReceiveState {
-    // The address that the last frame came from.
-    uint32_t address;
-
-    // The maximum sequence ID for the previous frame.
-    uint8_t max_sequence_id;
-
-    // The time that the last frame was received.
-    uint64_t receive_time_us;
-  };
-
-  // Contains the receive state for the last packet if received.
-  std::optional<LastReceiveState> last_receive_state_;
 
   // The mutex used to guard access to the link.
   std::mutex link_mutex_;
