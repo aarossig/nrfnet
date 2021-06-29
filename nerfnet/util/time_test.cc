@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Andrew Rossignol andrew.rossignol@gmail.com
+ * Copyright 2021 Andrew Rossignol andrew.rossignol@gmail.com
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,35 +14,20 @@
  * limitations under the License.
  */
 
+#include <gtest/gtest.h>
+
 #include "nerfnet/util/time.h"
 
-#include <chrono>
-#include <unistd.h>
-
 namespace nerfnet {
+namespace {
 
-void SleepUs(uint64_t delay) {
-  usleep(delay);
+TEST(TimeTest, MockClock) {
+  MockClock clock;
+  EXPECT_EQ(clock.TimeNowUs(), 0);
+
+  clock.SetTimeUs(1000);
+  EXPECT_EQ(clock.TimeNowUs(), 1000);
 }
 
-uint64_t TimeNowUs() {
-  return std::chrono::duration_cast<std::chrono::microseconds>(
-            std::chrono::steady_clock::now().time_since_epoch()).count();
-}
-
-uint64_t RealClock::TimeNowUs() const {
-  return TimeNowUs();
-}
-
-MockClock::MockClock()
-    : time_us_(0) {}
-
-uint64_t MockClock::TimeNowUs() const {
-  return time_us_;
-}
-
-void MockClock::SetTimeUs(uint64_t time_us) {
-  time_us_ = time_us;
-}
-
+}  // namespace
 }  // namespace nerfnet

@@ -20,7 +20,8 @@ target_link_libraries(nerfnet PUBLIC
   pthread
   radio_transport
   rf24
-  util
+  util_string
+  util_time
 )
 
 # nerfnet proto ##############################################################
@@ -46,7 +47,7 @@ add_library(link
 )
 
 target_link_libraries(link PUBLIC
-  util
+  util_time
 )
 
 # transport ####################################################################
@@ -65,7 +66,7 @@ target_link_libraries(mock_link PUBLIC
   gtest
   link
   pthread
-  util
+  util_time
 )
 
 # radio transport ##############################################################
@@ -76,8 +77,8 @@ add_library(radio_transport
 
 target_link_libraries(radio_transport PUBLIC
   transport
-  util
   util_crc16
+  util_time
 )
 
 add_executable(radio_transport_test
@@ -101,7 +102,7 @@ add_library(radio_transport_receiver
 )
 
 target_link_libraries(radio_transport_receiver PUBLIC
-  util
+  util_time
 )
 
 add_executable(radio_transport_receiver_test

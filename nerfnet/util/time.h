@@ -19,6 +19,8 @@
 
 #include <cstdint>
 
+#include "nerfnet/util/non_copyable.h"
+
 namespace nerfnet {
 
 // Sleeps for the privided number of microseconds.
@@ -26,6 +28,41 @@ void SleepUs(uint64_t delay);
 
 // Returns the current time in microseconds.
 uint64_t TimeNowUs();
+
+// An interface for a clock that provides time.
+class Clock {
+ public:
+  virtual ~Clock() = default;
+
+  // Returns the current time from this clock.
+  virtual uint64_t TimeNowUs() const = 0;
+};
+
+// A clock that uses real system time to provide the current time.
+class RealClock : public Clock,
+                  public NonCopyable {
+ public:
+  // Clock implementation.
+  uint64_t TimeNowUs() const final;
+};
+
+// A clock that uses a mock time to provide the current time.
+class MockClock : public Clock,
+                  public NonCopyable {
+ public:
+  // Setup the initial state of the mock clock.
+  MockClock();
+
+  // Clock implementation.
+  uint64_t TimeNowUs() const;
+
+  // Sets the current time of the clock.
+  void SetTimeUs(uint64_t time_us);
+
+ private:
+  // The current time of the mocked clock.
+  uint64_t time_us_;
+};
 
 }  // namespace nerfnet
 

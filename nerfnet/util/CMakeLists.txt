@@ -29,10 +29,6 @@ add_library(util_encode_decode
   encode_decode.cc
 )
 
-target_link_libraries(util_encode_decode PUBLIC
-  util
-)
-
 add_executable(encode_decode_test
   encode_decode_test.cc
 )
@@ -54,7 +50,6 @@ add_library(util_file
 
 target_link_libraries(util_file PUBLIC
   ${PROTOBUF_LIBRARY}
-  util
 )
 
 PROTOBUF_GENERATE_CPP(file_test_proto_hdrs
@@ -85,9 +80,27 @@ target_link_libraries(file_test PUBLIC
 
 gtest_discover_tests(file_test WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 
-# util #########################################################################
+# time #########################################################################
 
-add_library(util
-  string.cc
+add_library(util_time
   time.cc
+)
+
+add_executable(time_test
+  time_test.cc
+)
+
+target_link_libraries(time_test PUBLIC
+  gtest_main
+  gtest
+  pthread
+  util_time
+)
+
+gtest_discover_tests(time_test WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+
+# string #######################################################################
+
+add_library(util_string
+  string.cc
 )
