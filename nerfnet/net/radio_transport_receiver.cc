@@ -39,13 +39,25 @@ std::optional<std::string> RadioTransportReceiver::HandleFrame(
     const Link::Frame& frame) {
   HandleTimeout();
 
+  bool frame_ack = (frame.payload[0] & kMaskAck) > 0;
   FrameType frame_type = static_cast<FrameType>(
       frame.payload[0] & kMaskFrameType);
-  if (!receive_state_.has_value() && frame_type == FrameType::BEGIN) {
-    // Initialize the receiver state.
-    receive_state_.emplace();
-    receive_state_->address = frame.address;
-    receive_state_->receive_time_us = clock_->TimeNowUs();
+  if (!receive_state_.has_value()) {
+    if (frame_type == FrameType::BEGIN && !frame_ack) {
+      // Initialize the receiver state.
+      receive_state_.emplace();
+      receive_state_->address = frame.address;
+      receive_state_->receive_time_us = clock_->TimeNowUs();
+
+      // Respond with an ack.
+      Link::Frame ack_frame = BuildBeginEndFrame(receive_state_->address,
+          FrameType::BEGIN, /*ack=*/true, link_->GetMaxPayloadSize());
+      Link::TransmitResult transmit_result = link_->Transmit(ack_frame);
+      if (transmit_result != Link::TransmitResult::SUCCESS) {
+        LOGE("Failed to transmit BEGIN ack: %d", transmit_result);
+        receive_state_.reset();
+      }
+    }
   } else if (receive_state_.has_value()) {
     
   }

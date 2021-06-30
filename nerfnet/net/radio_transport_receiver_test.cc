@@ -48,7 +48,8 @@ class RadioTransportReceiverTest : public ::testing::Test,
  protected:
   RadioTransportReceiverTest()
       : Link(/*address=*/1000),
-        receiver_(&clock_, this) {}
+        receiver_(&clock_, this),
+        next_send_result_(Link::TransmitResult::SUCCESS) {}
 
   Link::TransmitResult Beacon() final {
     CHECK(false, "Beacon is not supported");
@@ -88,8 +89,29 @@ TEST_F(RadioTransportReceiverTest, PrimeReceiverThenTimeout) {
   EXPECT_TRUE(receive_state.frame.empty());
   EXPECT_EQ(receive_state.receive_time_us, 1000);
 
+  frame = BuildBeginEndFrame(2000, FrameType::BEGIN,
+      /*ack=*/true, /*max_payload_size=*/32);
+  EXPECT_EQ(last_send_frame_.address, frame.address);
+  EXPECT_EQ(last_send_frame_.payload, frame.payload);
+
   clock_.SetTimeUs(1000 + kReceiveTimeoutUs + 1);
-  frame.payload = "\x02\x00" + std::string(30, '\x00');
+  frame = BuildBeginEndFrame(2000, FrameType::END,
+      /*ack=*/false, /*max_payload_size=*/32);
+  receiver_.HandleFrame(frame);
+  EXPECT_FALSE(receiver_.receive_state().has_value());
+}
+
+TEST_F(RadioTransportReceiverTest, PrimeReceiverAckTransmitFailure) {
+  next_send_result_ = Link::TransmitResult::TRANSMIT_ERROR;
+  Link::Frame frame = BuildBeginEndFrame(2000, FrameType::BEGIN,
+      /*ack=*/false, /*max_payload_size=*/32);
+  receiver_.HandleFrame(frame);
+  EXPECT_FALSE(receiver_.receive_state().has_value());
+}
+
+TEST_F(RadioTransportReceiverTest, PrimeReceiverIgnoreAck) {
+  Link::Frame frame = BuildBeginEndFrame(2000, FrameType::BEGIN,
+      /*ack=*/true, /*max_payload_size=*/32);
   receiver_.HandleFrame(frame);
   EXPECT_FALSE(receiver_.receive_state().has_value());
 }
