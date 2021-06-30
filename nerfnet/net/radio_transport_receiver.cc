@@ -18,12 +18,34 @@
 
 namespace nerfnet {
 
-RadioTransportReceiver::RadioTransportReceiver(const Clock* clock)
-    : clock_(clock) {}
+RadioTransportReceiver::RadioTransportReceiver(const Clock* clock, Link* link)
+    : clock_(clock), link_(link) {}
 
 std::optional<std::string> RadioTransportReceiver::HandleFrame(
     const Link::Frame& frame) {
+  HandleTimeout();
+
+  FrameType frame_type = static_cast<FrameType>(
+      frame.payload[0] & kMaskFrameType);
+  if (!receive_state_.has_value() && frame_type == FrameType::BEGIN) {
+    // Initialize the receiver state.
+    receive_state_.emplace();
+    receive_state_->address = frame.address;
+    receive_state_->receive_time_us = clock_->TimeNowUs();
+  } else if (receive_state_.has_value()) {
+    
+  }
+
   return std::nullopt;
+}
+
+void RadioTransportReceiver::HandleTimeout() {
+  if (receive_state_.has_value()) {
+    if ((clock_->TimeNowUs() - receive_state_->receive_time_us)
+            > kReceiveTimeoutUs) {
+      receive_state_.reset();
+    }
+  }
 }
 
 }  // namespace nerfnet

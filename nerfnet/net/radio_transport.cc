@@ -24,15 +24,6 @@
 #include "nerfnet/util/time.h"
 
 namespace nerfnet {
-namespace {
-
-// The mask for the frame type.
-constexpr uint8_t kMaskFrameType = 0x03;
-
-// The mask for the ack bit.
-constexpr uint8_t kMaskAck = 0x04;
-
-}  // anonymous namespace
 
 const RadioTransport::Config RadioTransport::kDefaultConfig = {
   /*beacon_interval_us=*/100000,  // 100ms.
@@ -43,7 +34,7 @@ RadioTransport::RadioTransport(Link* link, EventHandler* event_handler,
     : Transport(link, event_handler),
       config_(config),
       last_beacon_time_us_(0),
-      receiver_(&clock_),
+      receiver_(&clock_, link),
       transport_running_(true),
       beacon_thread_(&RadioTransport::BeaconThread, this),
       receive_thread_(&RadioTransport::ReceiveThread, this) {
@@ -261,7 +252,7 @@ Transport::SendResult RadioTransport::SendReceiveBeginEndFrame(
         if (frame.payload.empty()) {
           event_handler()->OnBeaconReceived(frame.address);
         } else if (frame.address != address) {
-          LOGW("Ignoring frame from %u while beginning transmission",
+          LOGW("Ignoring frame from %u while in transmission",
               frame.address);
         } else if (frame.payload.size() != link()->GetMaxPayloadSize()) {
           LOGW("Received frame from %u with frame size %zu vs expected %zu",

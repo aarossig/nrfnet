@@ -29,20 +29,30 @@ namespace nerfnet {
 // The maximum amount of time to await a reply when sending/receiving a frame.
 constexpr uint64_t kReceiveTimeoutUs = 10000;
 
+// The mask for the frame type.
+constexpr uint8_t kMaskFrameType = 0x03;
+
+// The mask for the ack bit.
+constexpr uint8_t kMaskAck = 0x04;
+
+// The type of frame to emit.
+enum class FrameType : uint8_t {
+  BEGIN = 0x01,
+  END = 0x02,
+};
+
 // A class that accepts multiple link frames and assembles them into one larger
 // payload.
 class RadioTransportReceiver : public NonCopyable {
  public:
   // Setup the radio transport receiver with the clock to use. The clock must
   // have a duration that is at least as long as the lifespan of this object.
-  RadioTransportReceiver(const Clock* clock);
+  RadioTransportReceiver(const Clock* clock, Link* link);
 
   // Handles a link frame. Returns a full payload if one has been received.
   std::optional<std::string> HandleFrame(const Link::Frame& frame);
 
- private:
-  // The clock to use for receiver timing.
-  const Clock* const clock_;
+  /**** Visible for testing ****/
 
   // State for the packet that is currently being received.
   struct ReceiveState {
@@ -51,7 +61,7 @@ class RadioTransportReceiver : public NonCopyable {
 
     // Received pieces of the current frame. These are assembled together and
     // appended to the frame below when all pieces have been received.
-    std::map<uint8_t, std::string> frame_pieces_;
+    std::map<uint8_t, std::string> frame_pieces;
 
     // Entirely received portions of frames.
     std::string frame;
@@ -60,24 +70,24 @@ class RadioTransportReceiver : public NonCopyable {
     uint64_t receive_time_us;
   };
 
+  // Returns the current receive state.
+  std::optional<ReceiveState> receive_state() const { return receive_state_; }
+
+  /**** End visible for testing ****/
+
+ private:
+  // The clock to use for receiver timing.
+  const Clock* const clock_;
+
+  // The link used to transmit replies with.
+  Link* const link_;
+
   // Contains the receive state of the current packet, if receiving one.
   std::optional<ReceiveState> receive_state_;
 
-  // State for the last packet that was received to allow acknowledging the END
-  // frame in the event that it is lost.
-  struct LastReceiveState {
-    // The address that the last frame came from.
-    uint32_t address;
-
-    // The maximum sequence ID for the previous frame.
-    uint8_t max_sequence_id;
-
-    // The time that the last frame was received.
-    uint64_t receive_time_us;
-  };
-
-  // Contains the receive state for the last packet if received.
-  std::optional<LastReceiveState> last_receive_state_;
+  // Handles receive timeouts. This should be called whenever a frame is
+  // provided.
+  void HandleTimeout();
 };
 
 }  // namespace nerfnet

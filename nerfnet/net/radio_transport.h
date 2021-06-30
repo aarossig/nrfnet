@@ -58,13 +58,6 @@ class RadioTransport : public Transport {
   // Returns the maximum sub-frame size.
   size_t GetMaxSubFrameSize() const;
 
-  // The type of frame to emit.
-  // Visible for testing.
-  enum class FrameType : uint8_t {
-    BEGIN = 0x01,
-    END = 0x02,
-  };
-
   // Builds a frame given a frame type and whether this is an ack frame.
   Link::Frame BuildBeginEndFrame(uint32_t address,
       FrameType frame_type, bool ack) const;
