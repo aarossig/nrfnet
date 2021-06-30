@@ -37,6 +37,9 @@ constexpr uint8_t kMaskFrameType = 0x03;
 // The mask for the ack bit.
 constexpr uint8_t kMaskAck = 0x04;
 
+// The length of a payload header.
+constexpr size_t kPayloadHeaderSize = 12;
+
 // The type of frame to emit.
 enum class FrameType : uint8_t {
   PAYLOAD = 0x00,
@@ -83,7 +86,7 @@ class RadioTransportReceiver : public NonCopyable {
     std::map<uint8_t, std::string> pieces;
 
     // Entirely received portions of frames.
-    std::string frame;
+    std::string payload;
 
     // The timestamp of the last received packet for this frame.
     uint64_t receive_time_us;

@@ -103,7 +103,8 @@ class RadioTransportReceiverTest : public ::testing::Test,
       : Link(/*address=*/1000),
         receiver_(&clock_, this),
         transmit_count_(0),
-        next_send_result_(Link::TransmitResult::SUCCESS) {}
+        next_send_result_(Link::TransmitResult::SUCCESS),
+        max_payload_size_(32) {}
 
   Link::TransmitResult Beacon() final {
     CHECK(false, "Beacon is not supported");
@@ -119,7 +120,7 @@ class RadioTransportReceiverTest : public ::testing::Test,
     return next_send_result_;
   }
 
-  uint32_t GetMaxPayloadSize() const final { return 32; }
+  uint32_t GetMaxPayloadSize() const final { return max_payload_size_; }
 
   MockClock clock_;
   RadioTransportReceiver receiver_;
@@ -128,6 +129,9 @@ class RadioTransportReceiverTest : public ::testing::Test,
   size_t transmit_count_;
   Link::TransmitResult next_send_result_;
   Link::Frame last_send_frame_;
+
+  // The maximum payload size.
+  uint32_t max_payload_size_;
 };
 
 TEST_F(RadioTransportReceiverTest, PrimeReceiverThenTimeout) {
@@ -142,7 +146,7 @@ TEST_F(RadioTransportReceiverTest, PrimeReceiverThenTimeout) {
   auto receive_state = receiver_.receive_state().value();
   EXPECT_EQ(receive_state.address, 2000);
   EXPECT_TRUE(receive_state.pieces.empty());
-  EXPECT_TRUE(receive_state.frame.empty());
+  EXPECT_TRUE(receive_state.payload.empty());
   EXPECT_EQ(receive_state.receive_time_us, 1000);
 
   frame = BuildBeginEndFrame(2000, FrameType::BEGIN,
@@ -233,7 +237,7 @@ TEST_F(RadioTransportReceiverTest, PrimeReceiverPartialPayloadEnd) {
       /*ack=*/false, /*max_payload_size=*/32);
   EXPECT_EQ(receiver_.HandleFrame(frame), std::nullopt);
 
-  // Set bits to ack frames 1, 3 and 9.
+  // Set bits to ack sequence id 1, 3 and 9.
   frame = BuildBeginEndFrame(2000, FrameType::END,
       /*ack*/true, /*max_payload_size=*/32);
   frame.payload[2] = 0x09;
@@ -241,6 +245,111 @@ TEST_F(RadioTransportReceiverTest, PrimeReceiverPartialPayloadEnd) {
   EXPECT_EQ(transmit_count_, 2);
   EXPECT_EQ(last_send_frame_.address, frame.address);
   EXPECT_EQ(last_send_frame_.payload, frame.payload);
+}
+
+TEST_F(RadioTransportReceiverTest, PrimeReceiverPartialPayloadTruncatedHeader) {
+  constexpr size_t kMaxPayloadSize = 8;
+  max_payload_size_ = kMaxPayloadSize;
+
+  std::vector<std::string> sub_frames = BuildSubFrames(
+      std::string(1024, '\xaa'), GetMaxSubFrameSize(kMaxPayloadSize));
+
+  Link::Frame frame = BuildBeginEndFrame(2000, FrameType::BEGIN,
+      /*ack=*/false, kMaxPayloadSize);
+  EXPECT_EQ(receiver_.HandleFrame(frame), std::nullopt);
+
+  // Send the first frame into the receiver.
+  frame = BuildPayloadFrame(2000, 0, sub_frames[0].substr(0, 6),
+      kMaxPayloadSize);
+  EXPECT_EQ(receiver_.HandleFrame(frame), std::nullopt);
+
+  frame = BuildBeginEndFrame(2000, FrameType::END,
+      /*ack=*/false, kMaxPayloadSize);
+  EXPECT_EQ(receiver_.HandleFrame(frame), std::nullopt);
+
+  // Set bits to ack sequence id 1.
+  frame = BuildBeginEndFrame(2000, FrameType::END,
+      /*ack*/true, kMaxPayloadSize);
+  frame.payload[2] = 0x01;
+  EXPECT_EQ(transmit_count_, 2);
+  EXPECT_EQ(last_send_frame_.address, frame.address);
+  EXPECT_EQ(last_send_frame_.payload, frame.payload);
+}
+
+TEST_F(RadioTransportReceiverTest, PrimeReceiverPartialPayloadTruncatedFrame) {
+  constexpr size_t kMaxPayloadSize = 32;
+  max_payload_size_ = kMaxPayloadSize;
+
+  std::vector<std::string> sub_frames = BuildSubFrames(
+      std::string(1024, '\xaa'), GetMaxSubFrameSize(kMaxPayloadSize));
+
+  Link::Frame frame = BuildBeginEndFrame(2000, FrameType::BEGIN,
+      /*ack=*/false, kMaxPayloadSize);
+  EXPECT_EQ(receiver_.HandleFrame(frame), std::nullopt);
+
+  // Send the first frame into the receiver.
+  frame = BuildPayloadFrame(2000, 0,
+      sub_frames[0].substr(0, kMaxPayloadSize - 2), kMaxPayloadSize);
+  EXPECT_EQ(receiver_.HandleFrame(frame), std::nullopt);
+
+  frame = BuildBeginEndFrame(2000, FrameType::END,
+      /*ack=*/false, kMaxPayloadSize);
+  EXPECT_EQ(receiver_.HandleFrame(frame), std::nullopt);
+
+  // Set bits to ack sequence id 1.
+  frame = BuildBeginEndFrame(2000, FrameType::END,
+      /*ack*/true, kMaxPayloadSize);
+  frame.payload[2] = 0x01;
+  EXPECT_EQ(transmit_count_, 2);
+  EXPECT_EQ(last_send_frame_.address, frame.address);
+  EXPECT_EQ(last_send_frame_.payload, frame.payload);
+}
+
+TEST_F(RadioTransportReceiverTest, PrimeReceiverFirstSubFrame) {
+  constexpr size_t kMaxPayloadSize = 8;
+  max_payload_size_ = kMaxPayloadSize;
+
+  std::string send_frame;
+  for (size_t i = 0; i < 1024; i++) {
+    send_frame.push_back(static_cast<char>(i));
+  }
+
+  std::vector<std::string> sub_frames = BuildSubFrames(
+      send_frame, GetMaxSubFrameSize(kMaxPayloadSize));
+
+  Link::Frame frame = BuildBeginEndFrame(2000, FrameType::BEGIN,
+      /*ack=*/false, kMaxPayloadSize);
+  EXPECT_EQ(receiver_.HandleFrame(frame), std::nullopt);
+
+  // Send the first sub frame into the receiver.
+  uint8_t sequence_id = 0;
+  for (size_t i = 0; i < sub_frames[0].size(); i += (kMaxPayloadSize - 2)) {
+    frame = BuildPayloadFrame(2000, sequence_id++,
+        sub_frames[0].substr(i, kMaxPayloadSize - 2), kMaxPayloadSize);
+    EXPECT_EQ(receiver_.HandleFrame(frame), std::nullopt);
+  }
+
+  frame = BuildBeginEndFrame(2000, FrameType::END,
+      /*ack=*/false, kMaxPayloadSize);
+  EXPECT_EQ(receiver_.HandleFrame(frame), std::nullopt);
+
+  // Set bits to ack all sequence IDs.
+  frame = BuildBeginEndFrame(2000, FrameType::END,
+      /*ack*/true, kMaxPayloadSize);
+  frame.payload[2] = 0xff;
+  frame.payload[3] = 0xff;
+  frame.payload[4] = 0xff;
+  frame.payload[5] = 0xff;
+  frame.payload[6] = 0xff;
+  frame.payload[7] = 0xff;
+  EXPECT_EQ(transmit_count_, 2);
+  EXPECT_EQ(last_send_frame_.address, frame.address);
+  EXPECT_EQ(last_send_frame_.payload, frame.payload);
+
+  auto receive_state = receiver_.receive_state().value();
+  EXPECT_TRUE(receive_state.pieces.empty());
+  EXPECT_EQ(receive_state.payload, send_frame.substr(0,
+        GetMaxSubFrameSize(kMaxPayloadSize) - kPayloadHeaderSize));
 }
 
 }  // namespace

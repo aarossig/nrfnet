@@ -16,6 +16,9 @@
 
 #include "nerfnet/net/radio_transport_receiver.h"
 
+#include <cinttypes>
+
+#include "nerfnet/util/crc16.h"
 #include "nerfnet/util/log.h"
 
 namespace nerfnet {
@@ -57,7 +60,8 @@ std::vector<std::string> BuildSubFrames(const std::string& frame,
     size_t max_sub_frame_size) {
   // The maximum size of a sub frame is equal to the maximum sub frame minus
   // space for a 4 byte length + 4 byte offset + 4 byte total length.
-  const size_t max_sub_frame_payload_length = max_sub_frame_size - 12;
+  const size_t max_sub_frame_payload_length = max_sub_frame_size
+      - kPayloadHeaderSize;
 
   std::vector<std::string> sub_frames;
   for (size_t sub_frame_offset = 0;
@@ -96,6 +100,7 @@ std::optional<std::string> RadioTransportReceiver::HandleFrame(
       RespondWithAck(FrameType::BEGIN);
     }
   } else if (receive_state_.has_value()) {
+    receive_state_->receive_time_us = clock_->TimeNowUs();
     if (frame_type == FrameType::BEGIN && !frame_ack) {
       RespondWithAck(FrameType::BEGIN);
     } else if (frame_type == FrameType::PAYLOAD) {
@@ -141,9 +146,59 @@ void RadioTransportReceiver::RespondWithAck(FrameType frame_type) {
 }
 
 std::optional<std::string> RadioTransportReceiver::HandleCompleteReceiveState() {
-  // TODO(aarossig): Keep the last details around.
-  // TODO(aarossig): Decode frame, append to frame.
-  return std::nullopt;
+  // Detect gaps in the sequence IDs and build the payload.
+  std::string payload;
+  for (size_t i = 0; i < receive_state_->pieces.size(); i++) {
+    auto piece = receive_state_->pieces.find(i);
+    if (piece == receive_state_->pieces.end()) {
+      LOGW("Found gap in received pieces at sequence id %zu", i);
+      return std::nullopt;
+    }
+
+    payload += piece->second;
+  }
+
+  if (payload.size() < kPayloadHeaderSize) {
+    LOGW("Received payload is too short to parse");
+    return std::nullopt;
+  }
+
+  uint32_t sub_frame_length = DecodeU32(payload);
+  if ((payload.size() - kPayloadHeaderSize) < sub_frame_length) {
+    LOGW("Incomplete payload received");
+    return std::nullopt;
+  }
+
+  uint32_t sub_frame_offset = DecodeU32(payload.substr(4));
+  if (receive_state_->payload.size() != sub_frame_offset) {
+    LOGW("Received frame with invalid offset %" PRIu32 " vs expected %zu",
+        sub_frame_offset, receive_state_->payload.size());
+    receive_state_.reset();
+    return std::nullopt;
+  }
+
+  receive_state_->payload += payload.substr(kPayloadHeaderSize);
+
+  uint32_t frame_length = DecodeU32(payload.substr(8));
+  if (receive_state_->payload.size() < frame_length) {
+    LOGW("Received partial payload");
+    receive_state_->pieces.clear();
+    return std::nullopt;
+  }
+
+  payload = std::move(receive_state_->payload);
+  receive_state_.reset();
+
+  uint16_t crc = GenerateCrc16(payload.substr(0, payload.size() - 2));
+  uint16_t decoded_crc = DecodeU16(payload.substr(payload.size() - 2));
+  if (crc != decoded_crc) {
+    LOGW("Received payload with CRC 0x%04x vs expected 0x%04x",
+        crc, decoded_crc);
+    return std::nullopt;
+  }
+
+  // TODO(aarossig): Store last receive state.
+  return payload.substr(0, payload.size() - 2);
 }
 
 }  // namespace nerfnet
