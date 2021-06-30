@@ -52,13 +52,6 @@ class RadioTransport : public Transport {
   SendResult Send(const std::string& frame, uint32_t address,
                   uint64_t timeout_us) final;
 
-  /**** Visible for testing. */
-
-  // Returns the maximum sub-frame size.
-  size_t GetMaxSubFrameSize() const;
-
-  /**** End visible for testing. */
-
  private:
   // The config to use for this transport.
   const Config config_;

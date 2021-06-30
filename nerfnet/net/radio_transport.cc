@@ -64,7 +64,7 @@ Transport::SendResult RadioTransport::Send(const std::string& frame,
   const uint64_t start_time_us = TimeNowUs();
   const std::string air_frame = frame + EncodeU16(GenerateCrc16(frame));
   const std::vector<std::string> sub_frames = BuildSubFrames(air_frame,
-      GetMaxSubFrameSize());
+      GetMaxSubFrameSize(link()->GetMaxPayloadSize()));
   for (const auto& sub_frame : sub_frames) {
     // Send BEGIN frame.
     SendResult send_result = SendReceiveBeginEndFrame(FrameType::BEGIN, address,
@@ -120,11 +120,6 @@ Transport::SendResult RadioTransport::Send(const std::string& frame,
   }
 
   return SendResult::SUCCESS;
-}
-
-size_t RadioTransport::GetMaxSubFrameSize() const {
-  size_t payload_size = link()->GetMaxPayloadSize() - 2;
-  return payload_size * 8 * payload_size;
 }
 
 void RadioTransport::BeaconThread() {

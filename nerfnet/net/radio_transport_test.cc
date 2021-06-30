@@ -103,62 +103,6 @@ TEST_F(RadioTransportBeaconTest, Beacon) {
   EXPECT_EQ(beacon_count_, 1);
 }
 
-/* Frame Generation Tests *****************************************************/
-
-class RadioTransportFrameGenerationTest : public RadioTransportTest {
- protected:
-  RadioTransportFrameGenerationTest() : RadioTransportTest({
-      /*mock_time_us=*/0,
-      /*max_payload_size=*/32,
-      /*beacon_interval_us=*/100000,
-      /*beacon_result_pattern=*/{},
-      /*receive_result=*/{},
-  }) {}
-};
-
-TEST_F(RadioTransportFrameGenerationTest, GetMaxSubFrameSize) {
-  EXPECT_EQ(transport_.GetMaxSubFrameSize(), 7200);
-}
-
-TEST_F(RadioTransportFrameGenerationTest, BuildSubFramesSingle) {
-  std::vector<std::string> sub_frames = BuildSubFrames(
-      std::string(16, '\xaa'), transport_.GetMaxSubFrameSize());
-  EXPECT_EQ(sub_frames.size(), 1);
-  EXPECT_EQ(DecodeU32(
-        static_cast<std::string_view>(sub_frames[0]).substr(0)), 16);
-  EXPECT_EQ(DecodeU32(
-        static_cast<std::string_view>(sub_frames[0]).substr(4)), 0);
-  EXPECT_EQ(DecodeU32(
-        static_cast<std::string_view>(sub_frames[0]).substr(8)), 16);
-  EXPECT_EQ(sub_frames[0].substr(12), std::string(16, '\xaa'));
-}
-
-TEST_F(RadioTransportFrameGenerationTest, BuildSubFramesMulti) {
-  std::vector<std::string> sub_frames = BuildSubFrames(
-      std::string(8192, '\xbb'), transport_.GetMaxSubFrameSize());
-  EXPECT_EQ(sub_frames.size(), 2);
-
-  // Check the first frame.
-  ASSERT_EQ(sub_frames[0].size(), 7200);
-  EXPECT_EQ(DecodeU32(
-        static_cast<std::string_view>(sub_frames[0]).substr(0)), 7188);
-  EXPECT_EQ(DecodeU32(
-        static_cast<std::string_view>(sub_frames[0]).substr(4)), 0);
-  EXPECT_EQ(DecodeU32(
-        static_cast<std::string_view>(sub_frames[0]).substr(8)), 8192);
-  EXPECT_EQ(sub_frames[0].substr(12), std::string(7188, '\xbb'));
-
-  // Check the second frame.
-  ASSERT_EQ(sub_frames[1].size(), 1016);
-  EXPECT_EQ(DecodeU32(
-        static_cast<std::string_view>(sub_frames[1]).substr(0)), 1004);
-  EXPECT_EQ(DecodeU32(
-        static_cast<std::string_view>(sub_frames[1]).substr(4)), 7188);
-  EXPECT_EQ(DecodeU32(
-        static_cast<std::string_view>(sub_frames[1]).substr(8)), 8192);
-  EXPECT_EQ(sub_frames[1].substr(12), std::string(1004, '\xbb'));
-}
-
 /* Send Test ******************************************************************/
 
 class RadioTransportSendTest : public RadioTransportTest {

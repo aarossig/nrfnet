@@ -50,6 +50,49 @@ TEST(RadioTransportReceiverFrameTest, BuildPayloadFrame) {
   EXPECT_EQ(frame.payload.substr(2), std::string(30, '\xaa'));
 }
 
+TEST(RadioTransportReceiverFrameTest, GetMaxSubFrameSize) {
+  EXPECT_EQ(GetMaxSubFrameSize(/*max_payload_size=*/32), 7200);
+}
+
+TEST(RadioTransportReceiverFrameTest, BuildSubFramesSingle) {
+  std::vector<std::string> sub_frames = BuildSubFrames(
+      std::string(16, '\xaa'), GetMaxSubFrameSize(/*max_payload_size=*/32));
+  EXPECT_EQ(sub_frames.size(), 1);
+  EXPECT_EQ(DecodeU32(
+        static_cast<std::string_view>(sub_frames[0]).substr(0)), 16);
+  EXPECT_EQ(DecodeU32(
+        static_cast<std::string_view>(sub_frames[0]).substr(4)), 0);
+  EXPECT_EQ(DecodeU32(
+        static_cast<std::string_view>(sub_frames[0]).substr(8)), 16);
+  EXPECT_EQ(sub_frames[0].substr(12), std::string(16, '\xaa'));
+}
+
+TEST(RadioTransportReceiverFrameTest, BuildSubFramesMulti) {
+  std::vector<std::string> sub_frames = BuildSubFrames(
+      std::string(8192, '\xbb'), GetMaxSubFrameSize(/*max_payload_size=*/32));
+  EXPECT_EQ(sub_frames.size(), 2);
+
+  // Check the first frame.
+  ASSERT_EQ(sub_frames[0].size(), 7200);
+  EXPECT_EQ(DecodeU32(
+        static_cast<std::string_view>(sub_frames[0]).substr(0)), 7188);
+  EXPECT_EQ(DecodeU32(
+        static_cast<std::string_view>(sub_frames[0]).substr(4)), 0);
+  EXPECT_EQ(DecodeU32(
+        static_cast<std::string_view>(sub_frames[0]).substr(8)), 8192);
+  EXPECT_EQ(sub_frames[0].substr(12), std::string(7188, '\xbb'));
+
+  // Check the second frame.
+  ASSERT_EQ(sub_frames[1].size(), 1016);
+  EXPECT_EQ(DecodeU32(
+        static_cast<std::string_view>(sub_frames[1]).substr(0)), 1004);
+  EXPECT_EQ(DecodeU32(
+        static_cast<std::string_view>(sub_frames[1]).substr(4)), 7188);
+  EXPECT_EQ(DecodeU32(
+        static_cast<std::string_view>(sub_frames[1]).substr(8)), 8192);
+  EXPECT_EQ(sub_frames[1].substr(12), std::string(1004, '\xbb'));
+}
+
 /* Receiver Tests *************************************************************/
 
 // The RadioTransportReceiver test harness.

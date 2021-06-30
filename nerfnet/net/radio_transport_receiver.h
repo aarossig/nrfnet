@@ -57,6 +57,9 @@ Link::Frame BuildPayloadFrame(uint32_t address,
 std::vector<std::string> BuildSubFrames(const std::string& frame,
     size_t max_sub_frame_size);
 
+// Returns the maximum sub-frame size.
+size_t GetMaxSubFrameSize(uint32_t max_payload_size);
+
 // A class that accepts multiple link frames and assembles them into one larger
 // payload.
 class RadioTransportReceiver : public NonCopyable {

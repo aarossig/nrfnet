@@ -47,6 +47,12 @@ Link::Frame BuildPayloadFrame(uint32_t address, uint8_t sequence_id,
   return frame;
 }
 
+// Returns the maximum sub-frame size.
+size_t GetMaxSubFrameSize(uint32_t max_payload_size) {
+  size_t payload_size = max_payload_size - 2;
+  return payload_size * 8 * payload_size;
+}
+
 std::vector<std::string> BuildSubFrames(const std::string& frame,
     size_t max_sub_frame_size) {
   // The maximum size of a sub frame is equal to the maximum sub frame minus
@@ -70,10 +76,6 @@ std::vector<std::string> BuildSubFrames(const std::string& frame,
 
   return sub_frames;
 }
-
-
-
-
 
 RadioTransportReceiver::RadioTransportReceiver(const Clock* clock, Link* link)
     : clock_(clock), link_(link) {}
