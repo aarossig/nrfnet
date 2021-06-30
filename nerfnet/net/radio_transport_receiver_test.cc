@@ -210,5 +210,38 @@ TEST_F(RadioTransportReceiverTest, PrimeReceiverPayloadTimeout) {
   EXPECT_FALSE(receiver_.receive_state().has_value());
 }
 
+TEST_F(RadioTransportReceiverTest, PrimeReceiverPartialPayloadEnd) {
+  std::vector<std::string> sub_frames = BuildSubFrames(
+      std::string(1024, '\xaa'), GetMaxSubFrameSize(/*max_payload_size=*/32));
+
+  Link::Frame frame = BuildBeginEndFrame(2000, FrameType::BEGIN,
+      /*ack=*/false, /*max_payload_size=*/32);
+  EXPECT_EQ(receiver_.HandleFrame(frame), std::nullopt);
+
+  // Send frames 1, 3 and 9 into the receiver.
+  frame = BuildPayloadFrame(2000, 0, sub_frames[0].substr(0, 30),
+      /*max_payload_size=*/32);
+  EXPECT_EQ(receiver_.HandleFrame(frame), std::nullopt);
+  frame = BuildPayloadFrame(2000, 3, sub_frames[0].substr(120, 30),
+      /*max_payload_size=*/32);
+  EXPECT_EQ(receiver_.HandleFrame(frame), std::nullopt);
+  frame = BuildPayloadFrame(2000, 9, sub_frames[0].substr(300, 30),
+      /*max_payload_size=*/32);
+  EXPECT_EQ(receiver_.HandleFrame(frame), std::nullopt);
+
+  frame = BuildBeginEndFrame(2000, FrameType::END,
+      /*ack=*/false, /*max_payload_size=*/32);
+  EXPECT_EQ(receiver_.HandleFrame(frame), std::nullopt);
+
+  // Set bits to ack frames 1, 3 and 9.
+  frame = BuildBeginEndFrame(2000, FrameType::END,
+      /*ack*/true, /*max_payload_size=*/32);
+  frame.payload[2] = 0x09;
+  frame.payload[3] = 0x02;
+  EXPECT_EQ(transmit_count_, 2);
+  EXPECT_EQ(last_send_frame_.address, frame.address);
+  EXPECT_EQ(last_send_frame_.payload, frame.payload);
+}
+
 }  // namespace
 }  // namespace nerfnet
