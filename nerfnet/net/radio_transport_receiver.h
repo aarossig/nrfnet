@@ -37,6 +37,7 @@ constexpr uint8_t kMaskAck = 0x04;
 
 // The type of frame to emit.
 enum class FrameType : uint8_t {
+  PAYLOAD = 0x00,
   BEGIN = 0x01,
   END = 0x02,
 };
@@ -65,7 +66,7 @@ class RadioTransportReceiver : public NonCopyable {
 
     // Received pieces of the current frame. These are assembled together and
     // appended to the frame below when all pieces have been received.
-    std::map<uint8_t, std::string> frame_pieces;
+    std::map<uint8_t, std::string> pieces;
 
     // Entirely received portions of frames.
     std::string frame;
@@ -92,6 +93,10 @@ class RadioTransportReceiver : public NonCopyable {
   // Handles receive timeouts. This should be called whenever a frame is
   // provided.
   void HandleTimeout();
+
+  // Responds with an ack for the supplied frame type. Receiver state is cleared
+  // if a transmit error occurs.
+  void RespondWithAck(FrameType frame_type);
 };
 
 }  // namespace nerfnet

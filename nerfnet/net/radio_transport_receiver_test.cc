@@ -49,6 +49,7 @@ class RadioTransportReceiverTest : public ::testing::Test,
   RadioTransportReceiverTest()
       : Link(/*address=*/1000),
         receiver_(&clock_, this),
+        transmit_count_(0),
         next_send_result_(Link::TransmitResult::SUCCESS) {}
 
   Link::TransmitResult Beacon() final {
@@ -60,6 +61,7 @@ class RadioTransportReceiverTest : public ::testing::Test,
   }
 
   Link::TransmitResult Transmit(const Link::Frame& frame) final {
+    transmit_count_++;
     last_send_frame_ = frame;
     return next_send_result_;
   }
@@ -70,6 +72,7 @@ class RadioTransportReceiverTest : public ::testing::Test,
   RadioTransportReceiver receiver_;
 
   // The next send and expected frame.
+  size_t transmit_count_;
   Link::TransmitResult next_send_result_;
   Link::Frame last_send_frame_;
 };
@@ -85,12 +88,13 @@ TEST_F(RadioTransportReceiverTest, PrimeReceiverThenTimeout) {
   ASSERT_TRUE(receiver_.receive_state().has_value());
   auto receive_state = receiver_.receive_state().value();
   EXPECT_EQ(receive_state.address, 2000);
-  EXPECT_TRUE(receive_state.frame_pieces.empty());
+  EXPECT_TRUE(receive_state.pieces.empty());
   EXPECT_TRUE(receive_state.frame.empty());
   EXPECT_EQ(receive_state.receive_time_us, 1000);
 
   frame = BuildBeginEndFrame(2000, FrameType::BEGIN,
       /*ack=*/true, /*max_payload_size=*/32);
+  EXPECT_EQ(transmit_count_, 1);
   EXPECT_EQ(last_send_frame_.address, frame.address);
   EXPECT_EQ(last_send_frame_.payload, frame.payload);
 
@@ -99,6 +103,7 @@ TEST_F(RadioTransportReceiverTest, PrimeReceiverThenTimeout) {
       /*ack=*/false, /*max_payload_size=*/32);
   receiver_.HandleFrame(frame);
   EXPECT_FALSE(receiver_.receive_state().has_value());
+  EXPECT_EQ(transmit_count_, 1);
 }
 
 TEST_F(RadioTransportReceiverTest, PrimeReceiverAckTransmitFailure) {
@@ -107,6 +112,7 @@ TEST_F(RadioTransportReceiverTest, PrimeReceiverAckTransmitFailure) {
       /*ack=*/false, /*max_payload_size=*/32);
   receiver_.HandleFrame(frame);
   EXPECT_FALSE(receiver_.receive_state().has_value());
+  EXPECT_EQ(transmit_count_, 1);
 }
 
 TEST_F(RadioTransportReceiverTest, PrimeReceiverIgnoreAck) {
@@ -114,6 +120,18 @@ TEST_F(RadioTransportReceiverTest, PrimeReceiverIgnoreAck) {
       /*ack=*/true, /*max_payload_size=*/32);
   receiver_.HandleFrame(frame);
   EXPECT_FALSE(receiver_.receive_state().has_value());
+  EXPECT_EQ(transmit_count_, 0);
+}
+
+TEST_F(RadioTransportReceiverTest, PrimeReceiverRepeatAck) {
+  Link::Frame frame = BuildBeginEndFrame(2000, FrameType::BEGIN,
+      /*ack=*/false, /*max_payload_size=*/32);
+  receiver_.HandleFrame(frame);
+  EXPECT_TRUE(receiver_.receive_state().has_value());
+  EXPECT_EQ(transmit_count_, 1);
+  receiver_.HandleFrame(frame);
+  EXPECT_TRUE(receiver_.receive_state().has_value());
+  EXPECT_EQ(transmit_count_, 2);
 }
 
 }  // namespace

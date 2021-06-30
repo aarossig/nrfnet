@@ -39,27 +39,30 @@ std::optional<std::string> RadioTransportReceiver::HandleFrame(
     const Link::Frame& frame) {
   HandleTimeout();
 
-  bool frame_ack = (frame.payload[0] & kMaskAck) > 0;
   FrameType frame_type = static_cast<FrameType>(
       frame.payload[0] & kMaskFrameType);
+  bool frame_ack = (frame.payload[0] & kMaskAck) > 0;
   if (!receive_state_.has_value()) {
     if (frame_type == FrameType::BEGIN && !frame_ack) {
       // Initialize the receiver state.
       receive_state_.emplace();
       receive_state_->address = frame.address;
       receive_state_->receive_time_us = clock_->TimeNowUs();
-
-      // Respond with an ack.
-      Link::Frame ack_frame = BuildBeginEndFrame(receive_state_->address,
-          FrameType::BEGIN, /*ack=*/true, link_->GetMaxPayloadSize());
-      Link::TransmitResult transmit_result = link_->Transmit(ack_frame);
-      if (transmit_result != Link::TransmitResult::SUCCESS) {
-        LOGE("Failed to transmit BEGIN ack: %d", transmit_result);
-        receive_state_.reset();
-      }
+      RespondWithAck(FrameType::BEGIN);
     }
   } else if (receive_state_.has_value()) {
-    
+    if (frame_type == FrameType::BEGIN && !frame_ack) {
+      RespondWithAck(FrameType::BEGIN);
+    } else if (frame_type == FrameType::PAYLOAD) {
+      uint8_t sequence_id = frame.payload[1];
+      if (receive_state_->pieces.find(sequence_id)
+          != receive_state_->pieces.end()) {
+        receive_state_->pieces[sequence_id] = frame.payload.substr(2);
+      }
+    } else if (frame_type == FrameType::END && !frame_ack) {
+      RespondWithAck(FrameType::END);
+      // TODO(aarossig): Clear the receive state, but keep the last details around.
+    }
   }
 
   return std::nullopt;
@@ -71,6 +74,16 @@ void RadioTransportReceiver::HandleTimeout() {
             > kReceiveTimeoutUs) {
       receive_state_.reset();
     }
+  }
+}
+
+void RadioTransportReceiver::RespondWithAck(FrameType frame_type) {
+  Link::Frame ack_frame = BuildBeginEndFrame(receive_state_->address,
+      frame_type, /*ack=*/true, link_->GetMaxPayloadSize());
+  Link::TransmitResult transmit_result = link_->Transmit(ack_frame);
+  if (transmit_result != Link::TransmitResult::SUCCESS) {
+    LOGE("Failed to transmit BEGIN ack: %d", transmit_result);
+    receive_state_.reset();
   }
 }
 
