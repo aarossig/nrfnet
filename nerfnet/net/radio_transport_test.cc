@@ -120,19 +120,9 @@ TEST_F(RadioTransportFrameGenerationTest, GetMaxSubFrameSize) {
   EXPECT_EQ(transport_.GetMaxSubFrameSize(), 7200);
 }
 
-TEST_F(RadioTransportFrameGenerationTest, BuildPayloadFrame) {
-  Link::Frame frame = transport_.BuildPayloadFrame(9003,
-      /*sequence_id=*/10, std::string(30, '\xaa'));
-  EXPECT_EQ(frame.address, 9003);
-  ASSERT_EQ(frame.payload.size(), link_.GetMaxPayloadSize());
-  EXPECT_EQ(frame.payload[0], 0x00);
-  EXPECT_EQ(frame.payload[1], 10);
-  EXPECT_EQ(frame.payload.substr(2), std::string(30, '\xaa'));
-}
-
 TEST_F(RadioTransportFrameGenerationTest, BuildSubFramesSingle) {
-  std::vector<std::string> sub_frames = transport_.BuildSubFrames(
-      std::string(16, '\xaa'));
+  std::vector<std::string> sub_frames = BuildSubFrames(
+      std::string(16, '\xaa'), transport_.GetMaxSubFrameSize());
   EXPECT_EQ(sub_frames.size(), 1);
   EXPECT_EQ(DecodeU32(
         static_cast<std::string_view>(sub_frames[0]).substr(0)), 16);
@@ -144,8 +134,8 @@ TEST_F(RadioTransportFrameGenerationTest, BuildSubFramesSingle) {
 }
 
 TEST_F(RadioTransportFrameGenerationTest, BuildSubFramesMulti) {
-  std::vector<std::string> sub_frames = transport_.BuildSubFrames(
-      std::string(8192, '\xbb'));
+  std::vector<std::string> sub_frames = BuildSubFrames(
+      std::string(8192, '\xbb'), transport_.GetMaxSubFrameSize());
   EXPECT_EQ(sub_frames.size(), 2);
 
   // Check the first frame.

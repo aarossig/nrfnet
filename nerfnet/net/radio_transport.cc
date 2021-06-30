@@ -63,7 +63,8 @@ Transport::SendResult RadioTransport::Send(const std::string& frame,
     uint32_t address, uint64_t timeout_us) {
   const uint64_t start_time_us = TimeNowUs();
   const std::string air_frame = frame + EncodeU16(GenerateCrc16(frame));
-  const std::vector<std::string> sub_frames = BuildSubFrames(air_frame);
+  const std::vector<std::string> sub_frames = BuildSubFrames(air_frame,
+      GetMaxSubFrameSize());
   for (const auto& sub_frame : sub_frames) {
     // Send BEGIN frame.
     SendResult send_result = SendReceiveBeginEndFrame(FrameType::BEGIN, address,
@@ -83,7 +84,8 @@ Transport::SendResult RadioTransport::Send(const std::string& frame,
         if (acknowledged_ids.find(sequence_id) == acknowledged_ids.end()) {
           // The sequence ID has not been transmitted yet, so send it.
           Link::Frame frame = BuildPayloadFrame(address, sequence_id,
-              sub_frame.substr(offset, payload_chunk_size));
+              sub_frame.substr(offset, payload_chunk_size),
+              link()->GetMaxPayloadSize());
 
           // Transmit the frame and log errors as warnings. The receiving radio
           // will fail to acknowledge any missing sequence IDs and this radio
@@ -123,45 +125,6 @@ Transport::SendResult RadioTransport::Send(const std::string& frame,
 size_t RadioTransport::GetMaxSubFrameSize() const {
   size_t payload_size = link()->GetMaxPayloadSize() - 2;
   return payload_size * 8 * payload_size;
-}
-
-Link::Frame RadioTransport::BuildPayloadFrame(uint32_t address,
-    uint8_t sequence_id, const std::string& payload) const {
-  const size_t expected_payload_size = link()->GetMaxPayloadSize() - 2;
-  CHECK(payload.size() == expected_payload_size,
-      "Invalid payload frame size (%zu vs expected %zu)",
-      payload.size(), expected_payload_size);
-
-  Link::Frame frame;
-  frame.address = address;
-  frame.payload = std::string(2, '\0');
-  frame.payload[1] = sequence_id;
-  frame.payload += payload;
-  return frame;
-}
-
-std::vector<std::string> RadioTransport::BuildSubFrames(
-    const std::string& frame) {
-  // The maximum size of a sub frame is equal to the maximum sub frame minus
-  // space for a 4 byte length + 4 byte offset + 4 byte total length.
-  const size_t max_sub_frame_payload_length = GetMaxSubFrameSize() - 12;
-
-  std::vector<std::string> sub_frames;
-  for (size_t sub_frame_offset = 0;
-       sub_frame_offset < frame.size();
-       sub_frame_offset+= max_sub_frame_payload_length) {
-    size_t sub_frame_size = std::min(max_sub_frame_payload_length,
-        frame.size() - sub_frame_offset);
-
-    std::string sub_frame;
-    sub_frame += EncodeU32(sub_frame_size);
-    sub_frame += EncodeU32(sub_frame_offset);
-    sub_frame += EncodeU32(frame.size());
-    sub_frame += frame.substr(sub_frame_offset, sub_frame_size);
-    sub_frames.push_back(sub_frame);
-  }
-
-  return sub_frames;
 }
 
 void RadioTransport::BeaconThread() {

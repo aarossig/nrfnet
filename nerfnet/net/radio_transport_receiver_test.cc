@@ -40,6 +40,16 @@ TEST(RadioTransportReceiverFrameTest, BuildEndFrame) {
   EXPECT_EQ(frame.payload[0], static_cast<char>(FrameType::END) | (1 << 2));
 }
 
+TEST(RadioTransportReceiverFrameTest, BuildPayloadFrame) {
+  Link::Frame frame = BuildPayloadFrame(9003, /*sequence_id=*/10,
+      std::string(30, '\xaa'), /*max_payload_size=*/32);
+  EXPECT_EQ(frame.address, 9003);
+  ASSERT_EQ(frame.payload.size(), 32);
+  EXPECT_EQ(frame.payload[0], 0x00);
+  EXPECT_EQ(frame.payload[1], 10);
+  EXPECT_EQ(frame.payload.substr(2), std::string(30, '\xaa'));
+}
+
 /* Receiver Tests *************************************************************/
 
 // The RadioTransportReceiver test harness.
@@ -83,7 +93,7 @@ TEST_F(RadioTransportReceiverTest, PrimeReceiverThenTimeout) {
 
   Link::Frame frame = BuildBeginEndFrame(2000, FrameType::BEGIN,
       /*ack=*/false, /*max_payload_size=*/32);
-  receiver_.HandleFrame(frame);
+  EXPECT_EQ(receiver_.HandleFrame(frame), std::nullopt);
 
   ASSERT_TRUE(receiver_.receive_state().has_value());
   auto receive_state = receiver_.receive_state().value();
@@ -101,7 +111,7 @@ TEST_F(RadioTransportReceiverTest, PrimeReceiverThenTimeout) {
   clock_.SetTimeUs(1000 + kReceiveTimeoutUs + 1);
   frame = BuildBeginEndFrame(2000, FrameType::END,
       /*ack=*/false, /*max_payload_size=*/32);
-  receiver_.HandleFrame(frame);
+  EXPECT_EQ(receiver_.HandleFrame(frame), std::nullopt);
   EXPECT_FALSE(receiver_.receive_state().has_value());
   EXPECT_EQ(transmit_count_, 1);
 }
@@ -110,7 +120,7 @@ TEST_F(RadioTransportReceiverTest, PrimeReceiverAckTransmitFailure) {
   next_send_result_ = Link::TransmitResult::TRANSMIT_ERROR;
   Link::Frame frame = BuildBeginEndFrame(2000, FrameType::BEGIN,
       /*ack=*/false, /*max_payload_size=*/32);
-  receiver_.HandleFrame(frame);
+  EXPECT_EQ(receiver_.HandleFrame(frame), std::nullopt);
   EXPECT_FALSE(receiver_.receive_state().has_value());
   EXPECT_EQ(transmit_count_, 1);
 }
@@ -118,7 +128,7 @@ TEST_F(RadioTransportReceiverTest, PrimeReceiverAckTransmitFailure) {
 TEST_F(RadioTransportReceiverTest, PrimeReceiverIgnoreAck) {
   Link::Frame frame = BuildBeginEndFrame(2000, FrameType::BEGIN,
       /*ack=*/true, /*max_payload_size=*/32);
-  receiver_.HandleFrame(frame);
+  EXPECT_EQ(receiver_.HandleFrame(frame), std::nullopt);
   EXPECT_FALSE(receiver_.receive_state().has_value());
   EXPECT_EQ(transmit_count_, 0);
 }
@@ -126,12 +136,19 @@ TEST_F(RadioTransportReceiverTest, PrimeReceiverIgnoreAck) {
 TEST_F(RadioTransportReceiverTest, PrimeReceiverRepeatAck) {
   Link::Frame frame = BuildBeginEndFrame(2000, FrameType::BEGIN,
       /*ack=*/false, /*max_payload_size=*/32);
-  receiver_.HandleFrame(frame);
+  EXPECT_EQ(receiver_.HandleFrame(frame), std::nullopt);
   EXPECT_TRUE(receiver_.receive_state().has_value());
   EXPECT_EQ(transmit_count_, 1);
-  receiver_.HandleFrame(frame);
+  EXPECT_EQ(receiver_.HandleFrame(frame), std::nullopt);
   EXPECT_TRUE(receiver_.receive_state().has_value());
   EXPECT_EQ(transmit_count_, 2);
+}
+
+TEST_F(RadioTransportReceiverTest, PrimeReceiverPayloadTimeout) {
+  Link::Frame frame = BuildBeginEndFrame(2000, FrameType::BEGIN,
+      /*ack=*/false, /*max_payload_size=*/32);
+  EXPECT_EQ(receiver_.HandleFrame(frame), std::nullopt);
+
 }
 
 }  // namespace

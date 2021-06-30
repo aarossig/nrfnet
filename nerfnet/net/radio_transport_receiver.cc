@@ -32,6 +32,49 @@ Link::Frame BuildBeginEndFrame(uint32_t address, FrameType frame_type,
   return frame;
 }
 
+Link::Frame BuildPayloadFrame(uint32_t address, uint8_t sequence_id,
+    const std::string& payload, size_t max_payload_size) {
+  const size_t expected_payload_size = max_payload_size - 2;
+  CHECK(payload.size() == expected_payload_size,
+      "Invalid payload frame size (%zu vs expected %zu)",
+      payload.size(), expected_payload_size);
+
+  Link::Frame frame;
+  frame.address = address;
+  frame.payload = std::string(2, '\0');
+  frame.payload[1] = sequence_id;
+  frame.payload += payload;
+  return frame;
+}
+
+std::vector<std::string> BuildSubFrames(const std::string& frame,
+    size_t max_sub_frame_size) {
+  // The maximum size of a sub frame is equal to the maximum sub frame minus
+  // space for a 4 byte length + 4 byte offset + 4 byte total length.
+  const size_t max_sub_frame_payload_length = max_sub_frame_size - 12;
+
+  std::vector<std::string> sub_frames;
+  for (size_t sub_frame_offset = 0;
+       sub_frame_offset < frame.size();
+       sub_frame_offset+= max_sub_frame_payload_length) {
+    size_t sub_frame_size = std::min(max_sub_frame_payload_length,
+        frame.size() - sub_frame_offset);
+
+    std::string sub_frame;
+    sub_frame += EncodeU32(sub_frame_size);
+    sub_frame += EncodeU32(sub_frame_offset);
+    sub_frame += EncodeU32(frame.size());
+    sub_frame += frame.substr(sub_frame_offset, sub_frame_size);
+    sub_frames.push_back(sub_frame);
+  }
+
+  return sub_frames;
+}
+
+
+
+
+
 RadioTransportReceiver::RadioTransportReceiver(const Clock* clock, Link* link)
     : clock_(clock), link_(link) {}
 
@@ -61,7 +104,9 @@ std::optional<std::string> RadioTransportReceiver::HandleFrame(
       }
     } else if (frame_type == FrameType::END && !frame_ack) {
       RespondWithAck(FrameType::END);
-      // TODO(aarossig): Clear the receive state, but keep the last details around.
+      if (receive_state_.has_value()) {
+        return HandleCompleteReceiveState();
+      }
     }
   }
 
@@ -80,11 +125,23 @@ void RadioTransportReceiver::HandleTimeout() {
 void RadioTransportReceiver::RespondWithAck(FrameType frame_type) {
   Link::Frame ack_frame = BuildBeginEndFrame(receive_state_->address,
       frame_type, /*ack=*/true, link_->GetMaxPayloadSize());
+  for (const auto& piece : receive_state_->pieces) {
+    size_t byte_index = (piece.first / 8) + 2;
+    size_t bit_index = piece.first % 8;
+    ack_frame.payload[byte_index] |= (1 << bit_index);
+  }
+
   Link::TransmitResult transmit_result = link_->Transmit(ack_frame);
   if (transmit_result != Link::TransmitResult::SUCCESS) {
     LOGE("Failed to transmit BEGIN ack: %d", transmit_result);
     receive_state_.reset();
   }
+}
+
+std::optional<std::string> RadioTransportReceiver::HandleCompleteReceiveState() {
+  // TODO(aarossig): Keep the last details around.
+  // TODO(aarossig): Decode frame, append to frame.
+  return std::nullopt;
 }
 
 }  // namespace nerfnet

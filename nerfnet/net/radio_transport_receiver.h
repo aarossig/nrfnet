@@ -19,8 +19,10 @@
 
 #include <map>
 #include <string>
+#include <vector>
 
 #include "nerfnet/net/link.h"
+#include "nerfnet/util/encode_decode.h"
 #include "nerfnet/util/non_copyable.h"
 #include "nerfnet/util/time.h"
 
@@ -45,6 +47,15 @@ enum class FrameType : uint8_t {
 // Builds a frame given a frame type and whether this is an ack frame.
 Link::Frame BuildBeginEndFrame(uint32_t address,
     FrameType frame_type, bool ack, size_t max_payload_size);
+
+// Builds a frame given a sequence id and payload. The payload size must be
+// 2 bytes smaller than the maximum payload size.
+Link::Frame BuildPayloadFrame(uint32_t address,
+    uint8_t sequence_id, const std::string& payload, size_t max_payload_size);
+
+// Builds the sub frames for a given to frame.
+std::vector<std::string> BuildSubFrames(const std::string& frame,
+    size_t max_sub_frame_size);
 
 // A class that accepts multiple link frames and assembles them into one larger
 // payload.
@@ -97,6 +108,10 @@ class RadioTransportReceiver : public NonCopyable {
   // Responds with an ack for the supplied frame type. Receiver state is cleared
   // if a transmit error occurs.
   void RespondWithAck(FrameType frame_type);
+
+  // Handles the completed receive state, decodes the sub frame and appends to
+  // the total frame. Returns the frame if it is entirely received.
+  std::optional<std::string> HandleCompleteReceiveState();
 };
 
 }  // namespace nerfnet
