@@ -188,10 +188,26 @@ TEST_F(RadioTransportReceiverTest, PrimeReceiverRepeatAck) {
 }
 
 TEST_F(RadioTransportReceiverTest, PrimeReceiverPayloadTimeout) {
+  std::vector<std::string> sub_frames = BuildSubFrames(
+      std::string(1024, '\xaa'), GetMaxSubFrameSize(/*max_payload_size=*/32));
+
   Link::Frame frame = BuildBeginEndFrame(2000, FrameType::BEGIN,
       /*ack=*/false, /*max_payload_size=*/32);
   EXPECT_EQ(receiver_.HandleFrame(frame), std::nullopt);
 
+  frame = BuildPayloadFrame(2000, 0, sub_frames[0].substr(0, 30),
+      /*max_payload_size=*/32);
+  EXPECT_EQ(receiver_.HandleFrame(frame), std::nullopt);
+  ASSERT_TRUE(receiver_.receive_state().has_value());
+  auto receive_state = receiver_.receive_state().value();
+  ASSERT_EQ(receive_state.pieces.size(), 1);
+  EXPECT_EQ(receive_state.pieces[0], sub_frames[0].substr(0, 30));
+
+  clock_.SetTimeUs(kReceiveTimeoutUs + 1);
+  frame = BuildPayloadFrame(2000, 0, sub_frames[0].substr(0, 30),
+      /*max_payload_size=*/32);
+  EXPECT_EQ(receiver_.HandleFrame(frame), std::nullopt);
+  EXPECT_FALSE(receiver_.receive_state().has_value());
 }
 
 }  // namespace

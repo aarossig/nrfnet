@@ -101,7 +101,7 @@ std::optional<std::string> RadioTransportReceiver::HandleFrame(
     } else if (frame_type == FrameType::PAYLOAD) {
       uint8_t sequence_id = frame.payload[1];
       if (receive_state_->pieces.find(sequence_id)
-          != receive_state_->pieces.end()) {
+          == receive_state_->pieces.end()) {
         receive_state_->pieces[sequence_id] = frame.payload.substr(2);
       }
     } else if (frame_type == FrameType::END && !frame_ack) {
