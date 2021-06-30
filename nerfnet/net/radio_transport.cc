@@ -148,9 +148,7 @@ void RadioTransport::ReceiveThread() {
     Link::Frame frame;
     std::unique_lock<std::mutex> lock(link_mutex_);
     Link::ReceiveResult receive_result = link()->Receive(&frame);
-    if (receive_result != Link::ReceiveResult::NOT_READY) {
-      LOGW("Failed to receive frame: %u", receive_result);
-    } else if (receive_result == Link::ReceiveResult::SUCCESS) {
+    if (receive_result == Link::ReceiveResult::SUCCESS) {
       frame_received = true;
       if (frame.payload.empty()) {
         event_handler()->OnBeaconReceived(frame.address);
@@ -160,7 +158,9 @@ void RadioTransport::ReceiveThread() {
       } else {
         HandlePayloadFrame(frame);
       }
-    }
+    } else if (receive_result != Link::ReceiveResult::NOT_READY) {
+      LOGW("Failed to receive frame: %u", receive_result);
+    } else 
 
     if (!frame_received) {
       SleepUs(1000);
