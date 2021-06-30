@@ -125,18 +125,6 @@ size_t RadioTransport::GetMaxSubFrameSize() const {
   return payload_size * 8 * payload_size;
 }
 
-Link::Frame RadioTransport::BuildBeginEndFrame(uint32_t address,
-    FrameType frame_type, bool ack) const {
-  CHECK(frame_type == FrameType::BEGIN || frame_type == FrameType::END,
-      "Frame type must be BEGIN or END");
-
-  Link::Frame frame;
-  frame.address = address;
-  frame.payload = std::string(link()->GetMaxPayloadSize(), '\0');
-  frame.payload[0] = static_cast<uint8_t>(frame_type) | (ack << 2);
-  return frame;
-}
-
 Link::Frame RadioTransport::BuildPayloadFrame(uint32_t address,
     uint8_t sequence_id, const std::string& payload) const {
   const size_t expected_payload_size = link()->GetMaxPayloadSize() - 2;
@@ -233,7 +221,8 @@ Transport::SendResult RadioTransport::SendReceiveBeginEndFrame(
       return SendResult::TIMEOUT;
     }
 
-    Link::Frame frame = BuildBeginEndFrame(address, frame_type, /*ack=*/false);
+    Link::Frame frame = BuildBeginEndFrame(address, frame_type, /*ack=*/false,
+        link()->GetMaxPayloadSize());
     Link::TransmitResult transmit_result = link()->Transmit(frame);
     if (transmit_result != Link::TransmitResult::SUCCESS) {
       LOGE("Failed to transmit frame: %u", transmit_result);

@@ -22,6 +22,26 @@
 namespace nerfnet {
 namespace {
 
+/* Frame Tests ****************************************************************/
+
+TEST(RadioTransportReceiverFrameTest, BuildBeginFrame) {
+  Link::Frame frame = BuildBeginEndFrame(9001, FrameType::BEGIN,
+      /*ack=*/false, /*max_payload_size=*/32);
+  EXPECT_EQ(frame.address, 9001);
+  ASSERT_EQ(frame.payload.size(), 32);
+  EXPECT_EQ(frame.payload[0], static_cast<char>(FrameType::BEGIN));
+}
+
+TEST(RadioTransportReceiverFrameTest, BuildEndFrame) {
+  Link::Frame frame = BuildBeginEndFrame(9002, FrameType::END,
+      /*ack=*/true, /*max_payload_size=*/32);
+  EXPECT_EQ(frame.address, 9002);
+  ASSERT_EQ(frame.payload.size(), 32);
+  EXPECT_EQ(frame.payload[0], static_cast<char>(FrameType::END) | (1 << 2));
+}
+
+/* Receiver Tests *************************************************************/
+
 // The RadioTransportReceiver test harness.
 class RadioTransportReceiverTest : public ::testing::Test,
                                    public Link {
@@ -57,9 +77,8 @@ TEST_F(RadioTransportReceiverTest, PrimeReceiverThenTimeout) {
   EXPECT_FALSE(receiver_.receive_state().has_value());
   clock_.SetTimeUs(1000);
 
-  Link::Frame frame;
-  frame.address = 2000;
-  frame.payload = "\x01\x00" + std::string(30, '\x00');
+  Link::Frame frame = BuildBeginEndFrame(2000, FrameType::BEGIN,
+      /*ack=*/false, /*max_payload_size=*/32);
   receiver_.HandleFrame(frame);
 
   ASSERT_TRUE(receiver_.receive_state().has_value());

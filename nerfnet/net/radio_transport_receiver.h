@@ -41,6 +41,10 @@ enum class FrameType : uint8_t {
   END = 0x02,
 };
 
+// Builds a frame given a frame type and whether this is an ack frame.
+Link::Frame BuildBeginEndFrame(uint32_t address,
+    FrameType frame_type, bool ack, size_t max_payload_size);
+
 // A class that accepts multiple link frames and assembles them into one larger
 // payload.
 class RadioTransportReceiver : public NonCopyable {

@@ -58,10 +58,6 @@ class RadioTransport : public Transport {
   // Returns the maximum sub-frame size.
   size_t GetMaxSubFrameSize() const;
 
-  // Builds a frame given a frame type and whether this is an ack frame.
-  Link::Frame BuildBeginEndFrame(uint32_t address,
-      FrameType frame_type, bool ack) const;
-
   // Builds a frame given a sequence id and payload. The payload size must be
   // 2 bytes smaller than the maximum payload size.
   Link::Frame BuildPayloadFrame(uint32_t address,

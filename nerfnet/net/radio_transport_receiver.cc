@@ -16,7 +16,21 @@
 
 #include "nerfnet/net/radio_transport_receiver.h"
 
+#include "nerfnet/util/log.h"
+
 namespace nerfnet {
+
+Link::Frame BuildBeginEndFrame(uint32_t address, FrameType frame_type,
+    bool ack, size_t max_payload_size) {
+  CHECK(frame_type == FrameType::BEGIN || frame_type == FrameType::END,
+      "Frame type must be BEGIN or END");
+
+  Link::Frame frame;
+  frame.address = address;
+  frame.payload = std::string(max_payload_size, '\0');
+  frame.payload[0] = static_cast<uint8_t>(frame_type) | (ack << 2);
+  return frame;
+}
 
 RadioTransportReceiver::RadioTransportReceiver(const Clock* clock, Link* link)
     : clock_(clock), link_(link) {}

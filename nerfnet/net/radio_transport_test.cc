@@ -120,22 +120,6 @@ TEST_F(RadioTransportFrameGenerationTest, GetMaxSubFrameSize) {
   EXPECT_EQ(transport_.GetMaxSubFrameSize(), 7200);
 }
 
-TEST_F(RadioTransportFrameGenerationTest, BuildBeginFrame) {
-  Link::Frame frame = transport_.BuildBeginEndFrame(9001,
-      FrameType::BEGIN, /*ack=*/false);
-  EXPECT_EQ(frame.address, 9001);
-  ASSERT_EQ(frame.payload.size(), link_.GetMaxPayloadSize());
-  EXPECT_EQ(frame.payload[0], static_cast<char>(FrameType::BEGIN));
-}
-
-TEST_F(RadioTransportFrameGenerationTest, BuildEndFrame) {
-  Link::Frame frame = transport_.BuildBeginEndFrame(9002,
-      FrameType::END, /*ack=*/true);
-  EXPECT_EQ(frame.address, 9002);
-  ASSERT_EQ(frame.payload.size(), link_.GetMaxPayloadSize());
-  EXPECT_EQ(frame.payload[0], static_cast<char>(FrameType::END) | (1 << 2));
-}
-
 TEST_F(RadioTransportFrameGenerationTest, BuildPayloadFrame) {
   Link::Frame frame = transport_.BuildPayloadFrame(9003,
       /*sequence_id=*/10, std::string(30, '\xaa'));
