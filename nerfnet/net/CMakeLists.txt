@@ -78,7 +78,6 @@ add_library(radio_transport
 target_link_libraries(radio_transport PUBLIC
   transport
   radio_transport_receiver
-  util_crc16
   util_time
 )
 

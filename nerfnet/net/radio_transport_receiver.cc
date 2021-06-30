@@ -38,7 +38,7 @@ Link::Frame BuildBeginEndFrame(uint32_t address, FrameType frame_type,
 Link::Frame BuildPayloadFrame(uint32_t address, uint8_t sequence_id,
     const std::string& payload, size_t max_payload_size) {
   const size_t expected_payload_size = max_payload_size - 2;
-  CHECK(payload.size() == expected_payload_size,
+  CHECK(payload.size() <= expected_payload_size,
       "Invalid payload frame size (%zu vs expected %zu)",
       payload.size(), expected_payload_size);
 
@@ -63,18 +63,19 @@ std::vector<std::string> BuildSubFrames(const std::string& frame,
   const size_t max_sub_frame_payload_length = max_sub_frame_size
       - kPayloadHeaderSize;
 
+  const std::string air_frame = frame + EncodeU16(GenerateCrc16(frame));
   std::vector<std::string> sub_frames;
   for (size_t sub_frame_offset = 0;
        sub_frame_offset < frame.size();
        sub_frame_offset+= max_sub_frame_payload_length) {
     size_t sub_frame_size = std::min(max_sub_frame_payload_length,
-        frame.size() - sub_frame_offset);
+        air_frame.size() - sub_frame_offset);
 
     std::string sub_frame;
     sub_frame += EncodeU32(sub_frame_size);
     sub_frame += EncodeU32(sub_frame_offset);
-    sub_frame += EncodeU32(frame.size());
-    sub_frame += frame.substr(sub_frame_offset, sub_frame_size);
+    sub_frame += EncodeU32(air_frame.size());
+    sub_frame += air_frame.substr(sub_frame_offset, sub_frame_size);
     sub_frames.push_back(sub_frame);
   }
 
@@ -177,7 +178,8 @@ std::optional<std::string> RadioTransportReceiver::HandleCompleteReceiveState() 
     return std::nullopt;
   }
 
-  receive_state_->payload += payload.substr(kPayloadHeaderSize);
+  receive_state_->payload += payload.substr(
+      kPayloadHeaderSize, sub_frame_length);
 
   uint32_t frame_length = DecodeU32(payload.substr(8));
   if (receive_state_->payload.size() < frame_length) {
@@ -198,6 +200,7 @@ std::optional<std::string> RadioTransportReceiver::HandleCompleteReceiveState() 
   }
 
   // TODO(aarossig): Store last receive state.
+  LOGI("receiving");
   return payload.substr(0, payload.size() - 2);
 }
 

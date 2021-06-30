@@ -18,7 +18,6 @@
 
 #include <set>
 
-#include "nerfnet/util/crc16.h"
 #include "nerfnet/util/encode_decode.h"
 #include "nerfnet/util/log.h"
 #include "nerfnet/util/time.h"
@@ -62,8 +61,7 @@ RadioTransport::~RadioTransport() {
 Transport::SendResult RadioTransport::Send(const std::string& frame,
     uint32_t address, uint64_t timeout_us) {
   const uint64_t start_time_us = TimeNowUs();
-  const std::string air_frame = frame + EncodeU16(GenerateCrc16(frame));
-  const std::vector<std::string> sub_frames = BuildSubFrames(air_frame,
+  const std::vector<std::string> sub_frames = BuildSubFrames(frame,
       GetMaxSubFrameSize(link()->GetMaxPayloadSize()));
   for (const auto& sub_frame : sub_frames) {
     // Send BEGIN frame.
@@ -234,13 +232,7 @@ Transport::SendResult RadioTransport::SendReceiveBeginEndFrame(
 void RadioTransport::HandlePayloadFrame(const Link::Frame& frame) {
   std::optional<std::string> payload = receiver_.HandleFrame(frame);
   if (payload.has_value()) {
-    uint16_t crc = GenerateCrc16(payload->substr(0, payload->size() - 2));
-    uint16_t decoded_crc = DecodeU16(payload->substr(payload->size() - 2));
-    if (crc != decoded_crc) {
-      LOGW("CRC16 mismatch in payload: 0x%04x vs 0x%04x", crc, decoded_crc);
-    } else {
-      event_handler()->OnFrameReceived(frame.address, *payload);
-    }
+    event_handler()->OnFrameReceived(frame.address, *payload);
   }
 }
 
