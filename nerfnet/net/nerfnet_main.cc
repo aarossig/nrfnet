@@ -17,6 +17,8 @@
 #include <tclap/CmdLine.h>
 
 #include "nerfnet/net/nrf_link.h"
+#include "nerfnet/net/radio_transport.h"
+#include "nerfnet/net/transport_manager.h"
 #include "nerfnet/util/log.h"
 #include "nerfnet/util/string.h"
 #include "nerfnet/util/time.h"
@@ -26,9 +28,6 @@ constexpr char kDescription[] = "Mesh networking for NRF24L01 radios.";
 
 // The version of the program.
 constexpr char kVersion[] = "0.0.1";
-
-using nerfnet::Link;
-using nerfnet::NRFLink;
 
 int main(int argc, char** argv) {
   TCLAP::CmdLine cmd(kDescription, ' ', kVersion);
@@ -41,53 +40,19 @@ int main(int argc, char** argv) {
       cmd);
   cmd.parse(argc, argv);
 
-  NRFLink link(address_arg.getValue(), channel_arg.getValue(),
+  // Setup the transport manager.
+  nerfnet::TransportManager transport_manager;
+
+  // Register transports.
+  nerfnet::NRFLink link(address_arg.getValue(), channel_arg.getValue(),
       ce_pin_arg.getValue());
+  nerfnet::RadioTransport transport(&link, &transport_manager);
+  transport_manager.RegisterTransport(&transport);
 
-  constexpr uint64_t kBeaconIntervalUs = 200000;
-  constexpr uint64_t kDataIntervalUs = 1000000;
-  uint64_t last_beacon_time_us = 0;
-  uint64_t last_data_time_us = 0;
+  // TODO(aarossig): Start the transport manager and block until quit.
   while (1) {
-    uint64_t time_now_us = nerfnet::TimeNowUs();
-    if ((time_now_us - last_beacon_time_us) > kBeaconIntervalUs) {
-      LOGI("beaconing");
-      Link::TransmitResult result = link.Beacon();
-      if (result != Link::TransmitResult::SUCCESS) {
-        LOGE("Beacon failed: %d", result);
-      }
-
-      last_beacon_time_us = time_now_us;
-    } else if ((time_now_us - last_data_time_us) > kDataIntervalUs) {
-      LOGI("data");
-      Link::Frame frame;
-      frame.address = 2000;
-      frame.payload = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
-      Link::TransmitResult result = link.Transmit(frame);
-      if (result != Link::TransmitResult::SUCCESS) {
-        LOGE("Transmit failed: %d", result);
-      }
-
-      last_data_time_us = time_now_us;
-    } else {
-      Link::Frame frame;
-      Link::ReceiveResult result = link.Receive(&frame);
-      if (result == Link::ReceiveResult::NOT_READY) {
-        nerfnet::SleepUs(10000);
-      } else {
-        if (result == Link::ReceiveResult::SUCCESS) {
-          std::string frame_contents_str;
-          for (const auto& byte : frame.payload) {
-            frame_contents_str += nerfnet::StringFormat("0x%02x ", byte);
-          }
-
-          LOGI("Received frame: address=%" PRIu32 ", size=%zu, contents='%s'",
-              frame.address, frame.payload.size(), frame_contents_str.c_str());
-        } else {
-          LOGE("Receive failed: %d", result);
-        }
-      }
-    }
+    nerfnet::SleepUs(1000000);
+    LOGI("heartbeat");
   }
 
   return 0;

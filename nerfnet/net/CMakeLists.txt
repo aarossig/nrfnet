@@ -20,6 +20,7 @@ target_link_libraries(nerfnet PUBLIC
   pthread
   radio_transport
   rf24
+  transport_manager
   util_string
   util_time
 )
@@ -39,6 +40,16 @@ add_library(nerfnet_proto
 target_include_directories(nerfnet_proto PUBLIC ${PROJECT_BINARY_DIR})
 target_include_directories(nerfnet_proto PUBLIC ${Protobuf_INCLUDE_DIRS})
 target_link_libraries(nerfnet_proto ${Protobuf_LIBRARIES})
+
+# transport manager ############################################################
+
+add_library(transport_manager
+  transport_manager.cc
+)
+
+target_link_libraries(transport_manager PUBLIC
+  transport
+)
 
 # link #########################################################################
 
