@@ -39,4 +39,17 @@ std::string StringFormat(const char* format, ...) {
   return output.substr(0, output.size() - 1);
 }
 
+std::string StringFormatHex(const std::string& str) {
+  if (str.empty()) {
+    return str;
+  }
+
+  std::string format_str;
+  for (const auto& c : str) {
+    format_str += StringFormat("0x%02x ", c);
+  }
+
+  return format_str.substr(0, format_str.size() - 1);
+}
+
 }  // namespace nerfnet

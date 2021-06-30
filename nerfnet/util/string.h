@@ -24,6 +24,9 @@ namespace nerfnet {
 // Formats the supplied arguments into a string and returns it.
 std::string StringFormat(const char* format, ...);
 
+// Builds a hex string from the supplied string.
+std::string StringFormatHex(const std::string& str);
+
 }  // namespace nerfnet
 
 #endif  // NERFNET_UTIL_STRING_H_
