@@ -20,6 +20,7 @@
 
 #include "nerfnet/util/encode_decode.h"
 #include "nerfnet/util/log.h"
+#include "nerfnet/util/rand.h"
 #include "nerfnet/util/time.h"
 
 namespace nerfnet {
@@ -123,7 +124,11 @@ Transport::SendResult RadioTransport::Send(const std::string& frame,
 void RadioTransport::BeaconThread() {
   while(transport_running_) {
     uint64_t time_now_us = TimeNowUs();
-    if ((time_now_us - last_beacon_time_us_) > config_.beacon_interval_us) {
+    int64_t beacon_interval_error_us = config_.beacon_interval_us / 10;
+    int64_t beacon_jitter_us = Random<int64_t>(
+        -beacon_interval_error_us, beacon_interval_error_us);
+    if ((time_now_us - last_beacon_time_us_)
+        > (config_.beacon_interval_us + beacon_jitter_us)) {
       std::unique_lock<std::mutex> lock(link_mutex_);
       Link::TransmitResult result = link()->Beacon();
       if (result != Link::TransmitResult::SUCCESS) {
