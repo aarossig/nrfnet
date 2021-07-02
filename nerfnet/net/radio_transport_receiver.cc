@@ -92,19 +92,11 @@ std::optional<std::string> RadioTransportReceiver::HandleFrame(
   FrameType frame_type = static_cast<FrameType>(
       frame.payload[0] & kMaskFrameType);
   bool frame_ack = (frame.payload[0] & kMaskAck) > 0;
-  if (!receive_state_.has_value()) {
-    if (frame_type == FrameType::BEGIN && !frame_ack) {
-      LOGV("Beginning reception of frame from %u", frame.address);
-      receive_state_.emplace();
-      receive_state_->address = frame.address;
-      receive_state_->receive_time_us = clock_->TimeNowUs();
-      RespondWithAck(FrameType::BEGIN);
-    }
-  } else if (receive_state_.has_value()
+  if (receive_state_.has_value()
       && receive_state_->address == frame.address) {
     receive_state_->receive_time_us = clock_->TimeNowUs();
     if (frame_type == FrameType::BEGIN && !frame_ack) {
-      RespondWithAck(FrameType::BEGIN);
+      RespondWithAck(receive_state_->address, FrameType::BEGIN);
     } else if (frame_type == FrameType::PAYLOAD) {
       uint8_t sequence_id = frame.payload[1];
       if (receive_state_->pieces.find(sequence_id)
@@ -112,7 +104,7 @@ std::optional<std::string> RadioTransportReceiver::HandleFrame(
         receive_state_->pieces[sequence_id] = frame.payload.substr(2);
       }
     } else if (frame_type == FrameType::END && !frame_ack) {
-      RespondWithAck(FrameType::END);
+      RespondWithAck(receive_state_->address, FrameType::END);
       if (receive_state_.has_value()) {
         return HandleCompleteReceiveState();
       }
@@ -121,8 +113,16 @@ std::optional<std::string> RadioTransportReceiver::HandleFrame(
       && last_receive_state_->address == frame.address) {
     last_receive_state_->receive_time_us = clock_->TimeNowUs();
     if (frame_type == FrameType::END && !frame_ack) {
-      RespondWithAck(FrameType::END);
+      LOGV("responding to %u %u", frame.address, last_receive_state_->address);
+      RespondWithAck(last_receive_state_->address, FrameType::END);
     }
+  } else if (!receive_state_.has_value()
+      && frame_type == FrameType::BEGIN && !frame_ack) {
+    LOGV("Beginning reception of frame from %u", frame.address);
+    receive_state_.emplace();
+    receive_state_->address = frame.address;
+    receive_state_->receive_time_us = clock_->TimeNowUs();
+    RespondWithAck(receive_state_->address, FrameType::BEGIN);
   }
 
   return std::nullopt;
@@ -145,13 +145,20 @@ void RadioTransportReceiver::HandleTimeout() {
   }
 }
 
-void RadioTransportReceiver::RespondWithAck(FrameType frame_type) {
-  Link::Frame ack_frame = BuildBeginEndFrame(receive_state_->address,
+void RadioTransportReceiver::RespondWithAck(uint32_t address, FrameType frame_type) {
+  Link::Frame ack_frame = BuildBeginEndFrame(address,
       frame_type, /*ack=*/true, link_->GetMaxPayloadSize());
-  for (const auto& piece : receive_state_->pieces) {
-    size_t byte_index = (piece.first / 8) + 2;
-    size_t bit_index = piece.first % 8;
-    ack_frame.payload[byte_index] |= (1 << bit_index);
+  if (receive_state_.has_value()) {
+    for (const auto& piece : receive_state_->pieces) {
+      size_t byte_index = (piece.first / 8) + 2;
+      size_t bit_index = piece.first % 8;
+      ack_frame.payload[byte_index] |= (1 << bit_index);
+    }
+  } else if (last_receive_state_.has_value()) {
+    // Set all ack bits high since the packet has been fully received.
+    for (size_t i = 2; i < ack_frame.payload.size(); i++) {
+      ack_frame.payload[i] = 0xff;
+    }
   }
 
   Link::TransmitResult transmit_result = link_->Transmit(ack_frame);

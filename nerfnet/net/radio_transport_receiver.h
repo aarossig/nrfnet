@@ -135,7 +135,7 @@ class RadioTransportReceiver : public NonCopyable {
 
   // Responds with an ack for the supplied frame type. Receiver state is cleared
   // if a transmit error occurs.
-  void RespondWithAck(FrameType frame_type);
+  void RespondWithAck(uint32_t address, FrameType frame_type);
 
   // Handles the completed receive state, decodes the sub frame and appends to
   // the total frame. Returns the frame if it is entirely received.
