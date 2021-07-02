@@ -31,7 +31,7 @@ uint64_t TimeNowUs() {
 }
 
 uint64_t RealClock::TimeNowUs() const {
-  return TimeNowUs();
+  return ::nerfnet::TimeNowUs();
 }
 
 MockClock::MockClock()

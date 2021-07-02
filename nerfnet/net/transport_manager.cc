@@ -31,7 +31,7 @@ TransportManager::RequestResult TransportManager::SendRequest(
   *frame.mutable_request() = request;
 
   std::string serialized_frame;
-  if (frame.SerializeToString(&serialized_frame)) {
+  if (!frame.SerializeToString(&serialized_frame)) {
     LOGE("Failed to serialize frame");
     return RequestResult::FORMAT_ERROR;
   }
@@ -81,6 +81,7 @@ void TransportManager::OnFrameReceived(
       if (network_frame.has_request()) {
         event_handler_->OnRequest(this, address, network_frame.request());
       } else if (network_frame.has_response()) {
+        // TODO(aarossig): Store the address too.
         response_ = network_frame.response();
         response_cv_.notify_one();
       }
