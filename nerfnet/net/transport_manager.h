@@ -102,6 +102,7 @@ class TransportManager : public NonCopyable,
   // Synchronization for request/response.
   std::mutex response_mutex_;
   std::condition_variable response_cv_;
+  uint32_t response_address_;
   std::optional<Response> response_;
 
   // The queue of mesh messages to forward.

@@ -38,6 +38,7 @@ TransportManager::RequestResult TransportManager::SendRequest(
 
   std::unique_lock<std::mutex> lock(mutex_);
   std::unique_lock<std::mutex> response_lock(response_mutex_);
+  response_address_ = address;
   response_.reset();
   uint64_t start_time_us = TimeNowUs();
   Transport::SendResult send_result =
@@ -78,12 +79,16 @@ void TransportManager::OnFrameReceived(
   NetworkFrame network_frame;
   if (network_frame.ParseFromString(frame)) {
     if (network_frame.destination_address().empty()) {
-      if (network_frame.has_request()) {
+      if (!network_frame.has_source_address()) {
+        LOGW("Ignoring network frame with missing source address");
+      } else if (network_frame.has_request()) {
         event_handler_->OnRequest(this, address, network_frame.request());
       } else if (network_frame.has_response()) {
-        // TODO(aarossig): Store the address too.
-        response_ = network_frame.response();
-        response_cv_.notify_one();
+        std::unique_lock<std::mutex> lock(response_mutex_);
+        if (response_address_ == network_frame.source_address()) {
+          response_ = network_frame.response();
+          response_cv_.notify_one();
+        }
       }
     } else {
       std::unique_lock<std::mutex> lock(mesh_mutex_);
