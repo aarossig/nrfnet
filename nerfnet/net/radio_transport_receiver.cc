@@ -113,7 +113,6 @@ std::optional<std::string> RadioTransportReceiver::HandleFrame(
       && last_receive_state_->address == frame.address) {
     last_receive_state_->receive_time_us = clock_->TimeNowUs();
     if (frame_type == FrameType::END && !frame_ack) {
-      LOGV("responding to %u %u", frame.address, last_receive_state_->address);
       RespondWithAck(last_receive_state_->address, FrameType::END);
     }
   } else if (!receive_state_.has_value()
@@ -163,7 +162,7 @@ void RadioTransportReceiver::RespondWithAck(uint32_t address, FrameType frame_ty
 
   Link::TransmitResult transmit_result = link_->Transmit(ack_frame);
   if (transmit_result != Link::TransmitResult::SUCCESS) {
-    LOGE("Failed to transmit BEGIN ack: %d", transmit_result);
+    LOGE("Failed to transmit ack: %d", transmit_result);
     receive_state_.reset();
   }
 }
