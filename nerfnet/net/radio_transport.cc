@@ -112,7 +112,7 @@ Transport::SendResult RadioTransport::Send(const std::string& frame,
 
       // Parse received acks and insert into the set of acknowledged IDs.
       for (sequence_id = 0; sequence_id < max_sequence_id; sequence_id++) {
-        uint8_t byte_index = sequence_id / 8;
+        uint8_t byte_index = (sequence_id / 8) + 2;
         uint8_t bit_index = sequence_id % 8;
         if ((ack_frame.payload[byte_index] & (1 << bit_index)) > 0) {
           acknowledged_ids.insert(sequence_id);
@@ -182,7 +182,8 @@ Transport::SendResult RadioTransport::SendReceiveBeginEndFrame(
     FrameType frame_type, uint32_t address,
     uint64_t start_time_us, uint64_t timeout_us,
     Link::Frame* out_frame) {
-  while (true) {
+  Link::ReceiveResult receive_result = Link::ReceiveResult::NOT_READY;
+  while (receive_result != Link::ReceiveResult::SUCCESS) {
     if ((TimeNowUs() - start_time_us) > timeout_us) {
       return SendResult::TIMEOUT;
     }
@@ -196,7 +197,6 @@ Transport::SendResult RadioTransport::SendReceiveBeginEndFrame(
     }
 
     uint64_t receive_start_time_us = TimeNowUs();
-    Link::ReceiveResult receive_result = Link::ReceiveResult::NOT_READY;
     while (receive_result != Link::ReceiveResult::SUCCESS) {
       if ((TimeNowUs() - receive_start_time_us) > kReceiveTimeoutUs) {
         break;
