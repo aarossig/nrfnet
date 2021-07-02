@@ -64,6 +64,8 @@ Transport::SendResult RadioTransport::Send(const std::string& frame,
   const uint64_t start_time_us = TimeNowUs();
   const std::vector<std::string> sub_frames = BuildSubFrames(frame,
       GetMaxSubFrameSize(link()->GetMaxPayloadSize()));
+
+  std::unique_lock<std::mutex> lock(link_mutex_);
   for (const auto& sub_frame : sub_frames) {
     // Send BEGIN frame.
     SendResult send_result = SendReceiveBeginEndFrame(FrameType::BEGIN, address,
@@ -122,7 +124,7 @@ Transport::SendResult RadioTransport::Send(const std::string& frame,
 }
 
 void RadioTransport::BeaconThread() {
-  while(transport_running_) {
+  while (transport_running_) {
     uint64_t time_now_us = TimeNowUs();
     int64_t beacon_interval_error_us = config_.beacon_interval_us / 10;
     int64_t beacon_jitter_us = Random<int64_t>(
