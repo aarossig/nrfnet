@@ -19,7 +19,7 @@
 
 #include <atomic>
 #include <climits>
-#include <condition_variable>
+#include <mutex>
 #include <thread>
 
 #include "nerfnet/net/link.h"

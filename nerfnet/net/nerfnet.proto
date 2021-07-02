@@ -48,24 +48,34 @@ message HelloResponse {
  * A union of all request/response pairs supported in nerfnet.
  */
 
-message NetworkFrame {
-  // All request messages.
-  message Request {
-    oneof request {
-      HelloRequest hello = 1;
-    };
+message Request {
+  oneof request {
+    HelloRequest hello = 1;
   };
+};
 
-  // All response messages.
-  message Response {
-    oneof response {
-      HelloResponse hello = 1;
-    };
+message Response {
+  oneof response {
+    HelloResponse hello = 1;
   };
+};
+
+message NetworkFrame {
+  // The address of the node that originally sent the request. This allows the
+  // destination to prepare a response that traverses multiple hops in the
+  // network.
+  optional uint32 source_address = 1;
+
+  // The path for this packet to take on the network. If this field is empty,
+  // the packet is ignored. If this field contains a single address that matches
+  // the current node, the packet is processed, otherwise it is ignored. If this
+  // field contains more than one address, the first address is removed from the
+  // list and the packet is forwarded to that address.
+  repeated uint32 destination_address = 2;
 
   // A union of request/response to fit into a simple network frame.
   oneof payload {
-    Request request = 1;
-    Response response = 2;
+    Request request = 10;
+    Response response = 11;
   };
 };

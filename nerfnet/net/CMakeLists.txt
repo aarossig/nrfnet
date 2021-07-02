@@ -18,6 +18,7 @@ target_include_directories(nerfnet PRIVATE
 target_link_libraries(nerfnet PUBLIC
   link
   pthread
+  network_manager
   radio_transport
   rf24
   transport_manager
@@ -25,7 +26,7 @@ target_link_libraries(nerfnet PUBLIC
   util_time
 )
 
-# nerfnet proto ##############################################################
+# nerfnet proto ################################################################
 
 PROTOBUF_GENERATE_CPP(nerfnet_proto_hdrs
   nerfnet_proto_srcs
@@ -41,6 +42,16 @@ target_include_directories(nerfnet_proto PUBLIC ${PROJECT_BINARY_DIR})
 target_include_directories(nerfnet_proto PUBLIC ${Protobuf_INCLUDE_DIRS})
 target_link_libraries(nerfnet_proto ${Protobuf_LIBRARIES})
 
+# network manager ##############################################################
+
+add_library(network_manager
+  network_manager.cc
+)
+
+target_link_libraries(network_manager PUBLIC
+  transport_manager
+)
+
 # transport manager ############################################################
 
 add_library(transport_manager
@@ -48,6 +59,7 @@ add_library(transport_manager
 )
 
 target_link_libraries(transport_manager PUBLIC
+  nerfnet_proto
   transport
 )
 

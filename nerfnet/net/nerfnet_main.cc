@@ -16,6 +16,7 @@
 
 #include <tclap/CmdLine.h>
 
+#include "nerfnet/net/network_manager.h"
 #include "nerfnet/net/nrf_link.h"
 #include "nerfnet/net/radio_transport.h"
 #include "nerfnet/net/transport_manager.h"
@@ -40,16 +41,16 @@ int main(int argc, char** argv) {
       cmd);
   cmd.parse(argc, argv);
 
-  // Setup the transport manager.
-  nerfnet::TransportManager transport_manager;
 
   // Register transports.
-  nerfnet::NRFLink link(address_arg.getValue(), channel_arg.getValue(),
-      ce_pin_arg.getValue());
-  nerfnet::RadioTransport transport(&link, &transport_manager);
-  transport_manager.RegisterTransport(&transport);
+  std::unique_ptr<nerfnet::Link> link = std::make_unique<nerfnet::NRFLink>(
+      address_arg.getValue(), channel_arg.getValue(), ce_pin_arg.getValue());
 
-  // TODO(aarossig): Start the transport manager and block until quit.
+  // Setup the network.
+  nerfnet::NetworkManager network_manager;
+  network_manager.RegisterTransport<nerfnet::RadioTransport>(std::move(link));
+
+  // TODO(aarossig): Start the network manager and block until quit.
   while (1) {
     nerfnet::SleepUs(1000000);
     LOGI("heartbeat");

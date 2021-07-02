@@ -31,6 +31,10 @@ namespace nerfnet {
 // The maximum amount of time to await a reply when sending/receiving a frame.
 constexpr uint64_t kReceiveTimeoutUs = 10000;
 
+// The maximum amount of time that the transport receiver will keep the receiver
+// blocked on frames from a specific address.
+constexpr uint64_t kReceiverTimeoutUs = 20000;
+
 // The mask for the frame type.
 constexpr uint8_t kMaskFrameType = 0x03;
 

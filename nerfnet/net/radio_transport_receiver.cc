@@ -100,7 +100,8 @@ std::optional<std::string> RadioTransportReceiver::HandleFrame(
       receive_state_->receive_time_us = clock_->TimeNowUs();
       RespondWithAck(FrameType::BEGIN);
     }
-  } else if (receive_state_.has_value()) {
+  } else if (receive_state_.has_value()
+      && receive_state_->address == frame.address) {
     receive_state_->receive_time_us = clock_->TimeNowUs();
     if (frame_type == FrameType::BEGIN && !frame_ack) {
       RespondWithAck(FrameType::BEGIN);
@@ -124,7 +125,7 @@ std::optional<std::string> RadioTransportReceiver::HandleFrame(
 void RadioTransportReceiver::HandleTimeout() {
   if (receive_state_.has_value()) {
     if ((clock_->TimeNowUs() - receive_state_->receive_time_us)
-            > kReceiveTimeoutUs) {
+            > kReceiverTimeoutUs) {
       receive_state_.reset();
     }
   }

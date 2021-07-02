@@ -19,7 +19,6 @@
 
 #include "nerfnet/net/link.h"
 
-#include <condition_variable>
 #include <mutex>
 #include <vector>
 

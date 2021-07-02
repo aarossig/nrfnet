@@ -155,7 +155,7 @@ TEST_F(RadioTransportReceiverTest, PrimeReceiverThenTimeout) {
   EXPECT_EQ(last_send_frame_.address, frame.address);
   EXPECT_EQ(last_send_frame_.payload, frame.payload);
 
-  clock_.SetTimeUs(1000 + kReceiveTimeoutUs + 1);
+  clock_.SetTimeUs(1000 + kReceiverTimeoutUs + 1);
   frame = BuildBeginEndFrame(2000, FrameType::END,
       /*ack=*/false, /*max_payload_size=*/32);
   EXPECT_EQ(receiver_.HandleFrame(frame), std::nullopt);
@@ -207,7 +207,7 @@ TEST_F(RadioTransportReceiverTest, PrimeReceiverPayloadTimeout) {
   ASSERT_EQ(receive_state.pieces.size(), 1);
   EXPECT_EQ(receive_state.pieces[0], sub_frames[0].substr(0, 30));
 
-  clock_.SetTimeUs(kReceiveTimeoutUs + 1);
+  clock_.SetTimeUs(kReceiverTimeoutUs + 1);
   frame = BuildPayloadFrame(2000, 0, sub_frames[0].substr(0, 30),
       /*max_payload_size=*/32);
   EXPECT_EQ(receiver_.HandleFrame(frame), std::nullopt);
