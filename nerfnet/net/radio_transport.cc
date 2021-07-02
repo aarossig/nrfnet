@@ -201,13 +201,13 @@ Transport::SendResult RadioTransport::SendReceiveBeginEndFrame(
         break;
       }
 
-      Link::ReceiveResult receive_result = link()->Receive(&frame);
+      receive_result = link()->Receive(&frame);
       if (receive_result == Link::ReceiveResult::SUCCESS) {
         if (frame.payload.empty()) {
           event_handler()->OnBeaconReceived(frame.address);
         } else if (frame.address != address) {
-          LOGW("Ignoring frame from %u while in transmission",
-              frame.address);
+          LOGW("Ignoring frame from %u while in transmission to %u",
+              frame.address, address);
         } else if (frame.payload.size() != link()->GetMaxPayloadSize()) {
           LOGW("Received frame from %u with frame size %zu vs expected %zu",
               frame.address, frame.payload.size(),
