@@ -203,6 +203,7 @@ std::optional<std::string> RadioTransportReceiver::HandleCompleteReceiveState() 
     return std::nullopt;
   }
 
+  uint32_t address = receive_state_->address;
   payload = std::move(receive_state_->payload);
   receive_state_.reset();
 
@@ -214,7 +215,9 @@ std::optional<std::string> RadioTransportReceiver::HandleCompleteReceiveState() 
     return std::nullopt;
   }
 
-  // TODO(aarossig): Store last receive state.
+  last_receive_state_.emplace();
+  last_receive_state_->address = address;
+  last_receive_state_->receive_time_us = clock_->TimeNowUs();
   return payload.substr(0, payload.size() - 2);
 }
 
