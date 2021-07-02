@@ -117,6 +117,12 @@ std::optional<std::string> RadioTransportReceiver::HandleFrame(
         return HandleCompleteReceiveState();
       }
     }
+  } else if (last_receive_state_.has_value()
+      && last_receive_state_->address == frame.address) {
+    last_receive_state_->receive_time_us = clock_->TimeNowUs();
+    if (frame_type == FrameType::END && !frame_ack) {
+      RespondWithAck(FrameType::END);
+    }
   }
 
   return std::nullopt;
@@ -128,6 +134,13 @@ void RadioTransportReceiver::HandleTimeout() {
             > kReceiverTimeoutUs) {
       LOGV("Receiver timeout for address %u", receive_state_->address);
       receive_state_.reset();
+    }
+  }
+
+  if (last_receive_state_.has_value()) {
+    if ((clock_->TimeNowUs() - last_receive_state_->receive_time_us)
+            > kReceiverTimeoutUs) {
+      last_receive_state_.reset();
     }
   }
 }
@@ -202,7 +215,6 @@ std::optional<std::string> RadioTransportReceiver::HandleCompleteReceiveState() 
   }
 
   // TODO(aarossig): Store last receive state.
-  LOGI("receiving");
   return payload.substr(0, payload.size() - 2);
 }
 

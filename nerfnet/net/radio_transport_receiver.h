@@ -99,6 +99,21 @@ class RadioTransportReceiver : public NonCopyable {
   // Returns the current receive state.
   std::optional<ReceiveState> receive_state() const { return receive_state_; }
 
+  // The state of the previous receive to allow repeat acknowledgements after
+  // a full payload has been received.
+  struct LastReceiveState {
+    // The address of the node that the packet was received from.
+    uint32_t address;
+
+    // The timestamp of the last received packet for this frame.
+    uint64_t receive_time_us;
+  };
+
+  // Returns the last receive state.
+  std::optional<LastReceiveState> last_receive_state() const {
+    return last_receive_state_;
+  }
+
   /**** End visible for testing ****/
 
  private:
@@ -110,6 +125,9 @@ class RadioTransportReceiver : public NonCopyable {
 
   // Contains the receive state of the current packet, if receiving one.
   std::optional<ReceiveState> receive_state_;
+
+  // Contains the last receive state.
+  std::optional<LastReceiveState> last_receive_state_;
 
   // Handles receive timeouts. This should be called whenever a frame is
   // provided.
