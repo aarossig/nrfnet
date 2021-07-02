@@ -106,6 +106,7 @@ Transport::SendResult RadioTransport::Send(const std::string& frame,
       send_result = SendReceiveBeginEndFrame(FrameType::END, address,
           start_time_us, timeout_us, &ack_frame);
       if (send_result != SendResult::SUCCESS) {
+        LOGE("Failed to send/receive end frame: %d", send_result);
         return send_result;
       }
 
@@ -190,7 +191,7 @@ Transport::SendResult RadioTransport::SendReceiveBeginEndFrame(
         link()->GetMaxPayloadSize());
     Link::TransmitResult transmit_result = link()->Transmit(frame);
     if (transmit_result != Link::TransmitResult::SUCCESS) {
-      LOGE("Failed to transmit frame: %u", transmit_result);
+      LOGE("Failed to transmit frame: %d", transmit_result);
       continue;
     }
 
@@ -224,15 +225,14 @@ Transport::SendResult RadioTransport::SendReceiveBeginEndFrame(
         }
 
         receive_result = Link::ReceiveResult::NOT_READY;
+      } else if (receive_result != Link::ReceiveResult::NOT_READY) {
+        LOGE("Failed to receive: %d", receive_result);
       }
     }
 
-    if (receive_result == Link::ReceiveResult::SUCCESS) {
-      if (out_frame != nullptr) {
-        *out_frame = frame;
-      }
-
-      break;
+    if (receive_result == Link::ReceiveResult::SUCCESS
+        && out_frame != nullptr) {
+      *out_frame = frame;
     }
   }
 
