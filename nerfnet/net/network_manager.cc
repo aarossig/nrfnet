@@ -29,7 +29,7 @@ void NetworkManager::OnRequest(TransportManager* transport_manager,
     uint32_t address, const Request& request) {
   LOGI("Request received from %u", address);
   if (request.has_hello()) {
-    LOGI("Hello greeting: '%s'", request.hello().greeting());
+    LOGI("Hello greeting: '%s'", request.hello().greeting().c_str());
   }
 }
 
