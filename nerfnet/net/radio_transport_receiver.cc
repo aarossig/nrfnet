@@ -94,7 +94,7 @@ std::optional<std::string> RadioTransportReceiver::HandleFrame(
   bool frame_ack = (frame.payload[0] & kMaskAck) > 0;
   if (!receive_state_.has_value()) {
     if (frame_type == FrameType::BEGIN && !frame_ack) {
-      // Initialize the receiver state.
+      LOGV("Beginning reception of frame from %u", frame.address);
       receive_state_.emplace();
       receive_state_->address = frame.address;
       receive_state_->receive_time_us = clock_->TimeNowUs();
@@ -126,6 +126,7 @@ void RadioTransportReceiver::HandleTimeout() {
   if (receive_state_.has_value()) {
     if ((clock_->TimeNowUs() - receive_state_->receive_time_us)
             > kReceiverTimeoutUs) {
+      LOGV("Receiver timeout for address %u", receive_state_->address);
       receive_state_.reset();
     }
   }
