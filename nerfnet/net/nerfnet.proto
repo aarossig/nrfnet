@@ -30,16 +30,16 @@ message HelloRequest {
   // The value to round-trip.
   optional uint32 value = 1;
 
-  // The payload to round-trip.
-  optional bytes payload = 2;
+  // The greeting to round-trip.
+  optional string greeting = 2;
 };
 
 message HelloResponse {
   // The value sent as part of the request, but incremented by one.
   optional uint32 value = 1;
 
-  // The payload that was sent as-is.
-  optional bytes payload = 2;
+  // The greeting that was sent as-is.
+  optional string greeting = 2;
 };
 
 /*
