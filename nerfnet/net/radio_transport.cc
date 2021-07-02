@@ -208,10 +208,11 @@ Transport::SendResult RadioTransport::SendReceiveBeginEndFrame(
           LOGW("Received frame from %u with frame size %zu vs expected %zu",
               frame.address, frame.payload.size(),
               link()->GetMaxPayloadSize());
-        } else if (frame.payload[0] & kMaskFrameType
-            != static_cast<uint8_t>(FrameType::BEGIN)) {
-          LOGW("Received frame from %u with unexpected frame type",
-              frame.address);
+        } else if ((frame.payload[0] & kMaskFrameType)
+            != static_cast<uint8_t>(frame_type)) {
+          LOGW("Received frame from %u with unexpected frame type %d "
+              "vs expected %d",
+              frame.address, frame.payload[0] & kMaskFrameType, frame_type);
         } else if (frame.payload[0] & kMaskAck == 0) {
           LOGW("Received frame from %u missing expected ack", frame.address);
         } else {
