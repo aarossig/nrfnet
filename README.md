@@ -10,7 +10,8 @@ This project uses the cmake build system and has some dependencies.
 
 ```
 sudo apt-get install git cmake build-essential \
-    libtclap-dev libgtest-dev
+    libtclap-dev libgtest-dev \
+    libprotobuf-dev protobuf-compiler
 ```
 
 The RF24 library must also be installed.
